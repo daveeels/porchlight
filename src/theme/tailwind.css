@@ -1,0 +1,22 @@
+/*
+ * The ONLY place Ionic's CSS is imported (SPEC §2). Ionic sits in its own
+ * cascade layer below Tailwind's utilities, so utilities win. Preflight is
+ * deliberately not imported — it breaks Ionic components.
+ */
+@layer theme, ionic, utilities;
+
+@import "@ionic/vue/css/core.css" layer(ionic);
+@import "@ionic/vue/css/normalize.css" layer(ionic);
+@import "@ionic/vue/css/structure.css" layer(ionic);
+@import "@ionic/vue/css/typography.css" layer(ionic);
+@import "@ionic/vue/css/padding.css" layer(ionic);
+@import "@ionic/vue/css/float-elements.css" layer(ionic);
+@import "@ionic/vue/css/text-alignment.css" layer(ionic);
+@import "@ionic/vue/css/text-transformation.css" layer(ionic);
+@import "@ionic/vue/css/flex-utils.css" layer(ionic);
+@import "@ionic/vue/css/display.css" layer(ionic);
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@import "./variables.css";

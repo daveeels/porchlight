@@ -1,0 +1,11 @@
+rules_version = '2';
+
+// Phase 0: everything closed. Phase 1 adds the public read rules from SPEC §6.
+// Clients never write — every write goes through a Cloud Function.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

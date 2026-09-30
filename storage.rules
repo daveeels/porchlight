@@ -1,0 +1,11 @@
+rules_version = '2';
+
+// Phase 0: everything closed. Phase 2 opens uploads/{uid}/{uploadId} for the
+// owner and public reads of photos/ (SPEC §5 "Storage layout").
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

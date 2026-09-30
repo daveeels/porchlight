@@ -1,0 +1,8 @@
+[
+  {
+    "key": "tauranga",
+    "name": "Tauranga & surrounds",
+    "center": { "lat": -37.7, "lng": 176.2 },
+    "radiusKm": 30
+  }
+]

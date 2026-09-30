@@ -1,0 +1,52 @@
+/*
+ * Season palettes. useSeasonStore sets data-season on <html>; components use
+ * Ionic's --ion-* variables and never hardcode season colors.
+ */
+
+:root[data-season='HALLOWEEN'] {
+  --ion-color-primary: #ff7a1a;
+  --ion-color-primary-rgb: 255, 122, 26;
+  --ion-color-primary-contrast: #1a1025;
+  --ion-color-primary-contrast-rgb: 26, 16, 37;
+  --ion-color-primary-shade: #e06b17;
+  --ion-color-primary-tint: #ff8731;
+
+  --ion-color-secondary: #8b5cf6;
+  --ion-color-secondary-rgb: 139, 92, 246;
+  --ion-color-secondary-contrast: #ffffff;
+  --ion-color-secondary-contrast-rgb: 255, 255, 255;
+  --ion-color-secondary-shade: #7a51d8;
+  --ion-color-secondary-tint: #976cf7;
+
+  --ion-background-color: #1a1025;
+  --ion-background-color-rgb: 26, 16, 37;
+  --ion-text-color: #f4eefc;
+  --ion-text-color-rgb: 244, 238, 252;
+  --ion-toolbar-background: #241634;
+  --ion-item-background: #241634;
+  --ion-card-background: #241634;
+}
+
+:root[data-season='CHRISTMAS'] {
+  --ion-color-primary: #c62828;
+  --ion-color-primary-rgb: 198, 40, 40;
+  --ion-color-primary-contrast: #ffffff;
+  --ion-color-primary-contrast-rgb: 255, 255, 255;
+  --ion-color-primary-shade: #ae2323;
+  --ion-color-primary-tint: #cc3e3e;
+
+  --ion-color-secondary: #1b7f3b;
+  --ion-color-secondary-rgb: 27, 127, 59;
+  --ion-color-secondary-contrast: #ffffff;
+  --ion-color-secondary-contrast-rgb: 255, 255, 255;
+  --ion-color-secondary-shade: #187034;
+  --ion-color-secondary-tint: #328c4f;
+
+  --ion-background-color: #f7f9fb;
+  --ion-background-color-rgb: 247, 249, 251;
+  --ion-text-color: #14202b;
+  --ion-text-color-rgb: 20, 32, 43;
+  --ion-toolbar-background: #ffffff;
+  --ion-item-background: #ffffff;
+  --ion-card-background: #ffffff;
+}
