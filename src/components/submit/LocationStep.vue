@@ -67,7 +67,7 @@ const roughFix = computed(() => {
     </p>
 
     <div class="map-wrap relative overflow-hidden rounded-xl">
-      <div ref="mapEl" class="map absolute inset-0" data-testid="location-map" aria-label="Map: tap or drag the pin to your display" />
+      <div ref="mapEl" class="map-host" data-testid="location-map" aria-label="Map: tap or drag the pin to your display" />
       <div v-if="picker.mapStatus.value === 'loading'" class="overlay absolute inset-0 flex items-center justify-center">
         <ion-spinner name="crescent" />
       </div>
@@ -98,6 +98,12 @@ const roughFix = computed(() => {
   height: min(50vh, 360px);
   min-height: 240px;
   background: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.08);
+}
+/* See MapView.vue: maplibre-gl.css would otherwise make this position:
+   relative and 0 px tall. */
+.map-host {
+  position: absolute;
+  inset: 0;
 }
 .overlay {
   background: rgba(var(--ion-background-color-rgb, 0, 0, 0), 0.6);

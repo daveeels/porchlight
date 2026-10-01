@@ -61,7 +61,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div ref="root" class="map-view relative h-full min-h-64 w-full overflow-hidden">
-    <div ref="host" class="absolute inset-0" />
+    <div ref="host" class="map-host" data-testid="browse-map" />
 
     <div v-if="status === 'error'" class="map-overlay absolute inset-0 flex items-center justify-center">
       <StateMessage title="Map temporarily unavailable" message="Try the list view for now." error />
@@ -90,6 +90,13 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+/* Not Tailwind's absolute/inset-0: maplibre-gl.css gives the container
+   .maplibregl-map { position: relative }, which beats layered utilities and
+   left the map 0 px tall. Scoped (class + data attribute) wins over it. */
+.map-host {
+  position: absolute;
+  inset: 0;
+}
 .map-overlay {
   background: var(--ion-background-color);
   z-index: 5;
