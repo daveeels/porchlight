@@ -205,3 +205,20 @@ gcloud storage buckets describe gs://porchlight-nz.firebasestorage.app --format=
 
 Don't add a rule (or a Firestore TTL policy) for `photos/` or pins:
 `purgeExpiredPins` (Phase 4) deletes those in the right order.
+
+## After a functions deploy that failed and was retried
+
+If a 2nd-gen function fails on its **first** deploy and is then retried, the retry is an *update*, which does **not** grant the public invoker role. The function then rejects every browser call before our code runs, and the browser reports it as a **CORS error** (`No 'Access-Control-Allow-Origin' header`). This happened to `createPin`/`updatePin` on 2026-10-01.
+
+Check every callable answers its CORS preflight:
+
+```
+for f in createPin updatePin deletePin castVote reportPin moderatePin; do
+  printf "%-12s " $f
+  curl -s -o /dev/null -w "%{http_code}\n" -X OPTIONS \
+    -H "Origin: https://porchlight-nz.firebaseapp.com" -H "Access-Control-Request-Method: POST" \
+    "https://us-central1-porchlight-nz.cloudfunctions.net/$f"
+done
+```
+
+All should print `204`. For any that don't, grant `roles/run.invoker` to `allUsers` on that Cloud Run service (Cloud Run → service → Permissions → Add principal `allUsers`, role *Cloud Run Invoker*). This is the normal setting for Firebase callables: auth, the beta gate and App Check are still enforced inside the function.
