@@ -1,11 +1,102 @@
 rules_version = '2';
 
-// Phase 0: everything closed. Phase 1 adds the public read rules from SPEC §6.
-// Clients never write — every write goes through a Cloud Function.
+// Porchlight Firestore rules (SPEC §6).
+// Clients read directly and write NOTHING — every write goes through a Cloud
+// Function using the Admin SDK, which bypasses these rules.
+// Anything not matched below is denied (Firestore's default).
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
+
+    // ---- Helpers -----------------------------------------------------------
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn() && request.auth.token.admin == true;
+    }
+
+    function isUser(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // Owner of the pin being read. Only call where `resource` is non-null.
+    function isOwner() {
+      return signedIn() && request.auth.uid == resource.data.ownerId;
+    }
+
+    // ---- Public config -----------------------------------------------------
+
+    match /config/app {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /events/{eventId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /placeIndex/{eventId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ---- Pins --------------------------------------------------------------
+
+    match /pins/{pinId} {
+      // `resource == null` lets MyPinPage get its own not-yet-created pin and
+      // see exists=false instead of permission-denied.
+      allow get: if resource == null
+        || resource.data.status == 'ACTIVE'
+        || isOwner()
+        || isAdmin();
+      // Every public pin query must include where('status', '==', 'ACTIVE').
+      allow list: if resource.data.status == 'ACTIVE'
+        || isOwner()
+        || isAdmin();
+      allow write: if false;
+
+      match /votes/{uid} {
+        allow read: if isUser(uid) || isAdmin();
+        allow write: if false;
+      }
+
+      match /reports/{uid} {
+        allow read: if isUser(uid) || isAdmin();
+        allow write: if false;
+      }
+    }
+
+    // ---- Per-user and admin data -------------------------------------------
+
+    match /users/{uid} {
+      allow read: if isUser(uid);
+      allow write: if false;
+    }
+
+    match /moderationActions/{actionId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Server only — no client access at all.
+    match /rateLimits/{uid} {
       allow read, write: if false;
+    }
+
+    // ---- Phase 5 -----------------------------------------------------------
+
+    match /payments/{checkoutSessionId} {
+      allow read: if signedIn() && request.auth.uid == resource.data.uid;
+      allow write: if false;
+    }
+
+    // Sponsor queries must include where('active', '==', true).
+    match /sponsors/{sponsorId} {
+      allow read: if resource.data.active == true || isAdmin();
+      allow write: if false;
     }
   }
 }

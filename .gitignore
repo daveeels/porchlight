@@ -21,3 +21,11 @@ functions/node_modules/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Script download caches (GeoNames)
+.cache/
+
+# Playwright (screenshots are for review, not commits)
+test-results/
+playwright-report/
+tests/e2e/__screenshots__/

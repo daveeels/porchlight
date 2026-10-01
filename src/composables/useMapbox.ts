@@ -1,0 +1,582 @@
+// All browse-map code lives here (CLAUDE.md stack rule). One mapbox Map per
+// page for the whole session (golden rule 5): the Map is created once, into a
+// module-level container element that is moved into whichever host mounts,
+// and it is never removed except on a real page unload. Season changes call
+// setStyle() and re-add images, sources and layers on 'style.load'.
+import { readonly, ref, watch, type Ref } from 'vue'
+import type {
+  GeoJSONSource,
+  LayerSpecification,
+  Map as MapboxMap,
+  MapMouseEvent,
+  PointLike,
+} from 'mapbox-gl'
+import { env } from '@/config/env'
+import { SEASON_THEMES, type SeasonTheme } from '@/config/seasons'
+import { cellPrecisionForZoom, cellsForViewport, type LatLng } from '@/lib/geoCells'
+import { MARKER_IMAGE, markerImages, markerPixelRatio } from '@/lib/markerImages'
+import { useAppConfigStore } from '@/stores/appConfig'
+import { useMapStore } from '@/stores/map'
+import { usePinsStore } from '@/stores/pins'
+import { useSeasonStore } from '@/stores/season'
+import type { Pin, Season } from '@/types/models'
+
+export type MapStatus = 'idle' | 'loading' | 'ready' | 'no-token' | 'error'
+export type LocateError = 'denied' | 'unavailable'
+
+/** SPEC F2: re-query on moveend, debounced 400 ms. */
+export const MOVE_DEBOUNCE_MS = 400
+/** Zoom used by the locate-me button and when centering on the user. */
+export const LOCATE_ZOOM = 14
+
+const SRC_PINS = 'pl-pins'
+const SRC_ME = 'pl-me'
+const LAYER_CLUSTERS = 'pl-clusters'
+const LAYER_CLUSTER_COUNT = 'pl-cluster-count'
+const LAYER_PINS = 'pl-pins-unclustered'
+const LAYER_ME = 'pl-me'
+const TAP_PAD_PX = 10
+
+// ---- Minimal GeoJSON types (no @types/geojson in the project) -------------
+
+interface PointGeometry {
+  type: 'Point'
+  coordinates: [number, number]
+}
+
+export interface PinFeatureProps {
+  id: string
+  verified: boolean
+  isFeatured: boolean
+  title: string
+}
+
+export interface PinFeatureCollection {
+  type: 'FeatureCollection'
+  features: { type: 'Feature'; geometry: PointGeometry; properties: PinFeatureProps }[]
+}
+
+/** Pins → GeoJSON for the clustered source. "Verified only" filters here, client-side,
+ *  so cluster counts match what is shown (a layer filter can't reach inside clusters). */
+export function pinsToFeatureCollection(pins: Pin[], verifiedOnly: boolean): PinFeatureCollection {
+  return {
+    type: 'FeatureCollection',
+    features: pins
+      .filter((p) => !verifiedOnly || p.verified)
+      .map((p) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [p.geo.longitude, p.geo.latitude] as [number, number] },
+        properties: { id: p.id, verified: p.verified, isFeatured: p.isFeatured, title: p.title },
+      })),
+  }
+}
+
+function meCollection(me: LatLng | null) {
+  return {
+    type: 'FeatureCollection' as const,
+    features: me
+      ? [{ type: 'Feature' as const, geometry: { type: 'Point' as const, coordinates: [me.lng, me.lat] }, properties: {} }]
+      : [],
+  }
+}
+
+// ---- Module-level singleton state ------------------------------------------
+
+let map: MapboxMap | null = null
+let creating: Promise<MapboxMap | null> | null = null
+let mapEl: HTMLDivElement | null = null
+let styleLoadedOnce = false
+let userMoved = false
+let refreshTimer: ReturnType<typeof setTimeout> | null = null
+let refreshSeq = 0
+let lastPins: Pin[] = []
+let myLocation: LatLng | null = null
+let unloadHooked = false
+let selectHandler: ((id: string) => void) | null = null
+let locateErrorTimer: ReturnType<typeof setTimeout> | null = null
+
+const status = ref<MapStatus>('idle')
+/** Viewport at zoom >= 11 still needs more than 9 cells: treat like the zoom hint. */
+const tooWide = ref(false)
+/** The last cell query failed. */
+const loadFailed = ref(false)
+const locating = ref(false)
+const locateError = ref<LocateError | null>(null)
+
+function currentSeason(): Season {
+  return useSeasonStore().season ?? 'HALLOWEEN'
+}
+
+function themeFor(season: Season): SeasonTheme {
+  return SEASON_THEMES[season]
+}
+
+function getMapEl(): HTMLDivElement {
+  if (!mapEl) {
+    mapEl = document.createElement('div')
+    mapEl.className = 'pl-map'
+    mapEl.style.position = 'absolute'
+    mapEl.style.inset = '0'
+  }
+  return mapEl
+}
+
+function initialView(): { lat: number; lng: number; zoom: number } {
+  const mapStore = useMapStore()
+  if (mapStore.center && mapStore.zoom !== null) {
+    return { lat: mapStore.center.lat, lng: mapStore.center.lng, zoom: mapStore.zoom }
+  }
+  return useAppConfigStore().config.launchCenter
+}
+
+// ---- Style content (re-added after every setStyle) ------------------------
+
+function addMarkerImages(m: MapboxMap, theme: SeasonTheme): boolean {
+  const images = markerImages(theme, markerPixelRatio(window.devicePixelRatio))
+  for (const img of images) {
+    if (m.hasImage(img.name)) m.removeImage(img.name)
+    m.addImage(img.name, img.image, { pixelRatio: img.pixelRatio })
+  }
+  return images.length === 2
+}
+
+function pinLayer(theme: SeasonTheme, haveImages: boolean): LayerSpecification {
+  const notCluster = ['!', ['has', 'point_count']] as const
+  if (haveImages) {
+    return {
+      id: LAYER_PINS,
+      type: 'symbol',
+      source: SRC_PINS,
+      filter: notCluster as never,
+      layout: {
+        'icon-image': ['case', ['==', ['get', 'verified'], true], MARKER_IMAGE.verified, MARKER_IMAGE.unverified],
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': true,
+        // Verified drawn last, i.e. on top.
+        'symbol-sort-key': ['case', ['==', ['get', 'verified'], true], 1, 0],
+      },
+    }
+  }
+  // Fallback when canvas icons couldn't be drawn.
+  return {
+    id: LAYER_PINS,
+    type: 'circle',
+    source: SRC_PINS,
+    filter: notCluster as never,
+    paint: {
+      'circle-radius': 9,
+      'circle-color': ['case', ['==', ['get', 'verified'], true], theme.marker.verified, theme.marker.unverified],
+      'circle-opacity': ['case', ['==', ['get', 'verified'], true], 1, 0.55],
+      'circle-stroke-width': 2,
+      'circle-stroke-color': '#ffffff',
+    },
+  }
+}
+
+function installStyleContent(m: MapboxMap): void {
+  const theme = themeFor(currentSeason())
+  let haveImages = false
+  try {
+    haveImages = addMarkerImages(m, theme)
+  } catch (e) {
+    console.warn('[map] marker images failed', e)
+  }
+
+  if (!m.getSource(SRC_PINS)) {
+    m.addSource(SRC_PINS, {
+      type: 'geojson',
+      data: pinsToFeatureCollection(lastPins, usePinsStore().verifiedOnly) as never,
+      cluster: true,
+      clusterRadius: 50,
+      clusterMaxZoom: 14,
+    })
+  }
+  if (!m.getSource(SRC_ME)) {
+    m.addSource(SRC_ME, { type: 'geojson', data: meCollection(myLocation) as never })
+  }
+
+  if (!m.getLayer(LAYER_CLUSTERS)) {
+    m.addLayer({
+      id: LAYER_CLUSTERS,
+      type: 'circle',
+      source: SRC_PINS,
+      filter: ['has', 'point_count'],
+      paint: {
+        'circle-color': theme.marker.cluster,
+        'circle-radius': ['step', ['get', 'point_count'], 18, 10, 22, 50, 28],
+        'circle-stroke-width': 2,
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-opacity': 0.8,
+      },
+    })
+  }
+  if (!m.getLayer(LAYER_CLUSTER_COUNT)) {
+    m.addLayer({
+      id: LAYER_CLUSTER_COUNT,
+      type: 'symbol',
+      source: SRC_PINS,
+      filter: ['has', 'point_count'],
+      layout: {
+        'text-field': ['get', 'point_count_abbreviated'],
+        'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
+        'text-size': 13,
+        'text-allow-overlap': true,
+        'text-ignore-placement': true,
+      },
+      paint: { 'text-color': theme.marker.clusterText },
+    })
+  }
+  if (!m.getLayer(LAYER_PINS)) m.addLayer(pinLayer(theme, haveImages))
+  if (!m.getLayer(LAYER_ME)) {
+    m.addLayer({
+      id: LAYER_ME,
+      type: 'circle',
+      source: SRC_ME,
+      paint: {
+        'circle-radius': 7,
+        'circle-color': '#2f80ed',
+        'circle-stroke-width': 3,
+        'circle-stroke-color': '#ffffff',
+      },
+    })
+  }
+}
+
+/** Push the latest pins into the source; if the style isn't ready, style.load picks them up. */
+function pushPins(): void {
+  const src = map?.getSource<GeoJSONSource>(SRC_PINS)
+  if (!src) return
+  src.setData(pinsToFeatureCollection(lastPins, usePinsStore().verifiedOnly) as never)
+}
+
+function pushMe(): void {
+  const src = map?.getSource<GeoJSONSource>(SRC_ME)
+  if (!src) return
+  src.setData(meCollection(myLocation) as never)
+}
+
+// ---- Data ---------------------------------------------------------------
+
+function scheduleRefresh(delay = MOVE_DEBOUNCE_MS): void {
+  if (refreshTimer) clearTimeout(refreshTimer)
+  refreshTimer = setTimeout(() => {
+    refreshTimer = null
+    void refresh()
+  }, delay)
+}
+
+/** Zoom hint / too wide: drop drawn pins and clusters so stale ones don't sit
+ *  next to the "Zoom in" chip. The cell cache stays warm for zooming back in. */
+function clearDrawnPins(): void {
+  refreshSeq++
+  useMapStore().truncated = false
+  loadFailed.value = false
+  if (!lastPins.length) return
+  lastPins = []
+  pushPins()
+}
+
+async function refresh(): Promise<void> {
+  const m = map
+  if (!m) return
+  const mapStore = useMapStore()
+  const zoom = m.getZoom()
+  const precision = cellPrecisionForZoom(zoom)
+  if (precision === null) {
+    // Below zoom 11: the map store's zoomHint shows the chip; no queries.
+    tooWide.value = false
+    clearDrawnPins()
+    return
+  }
+  const b = m.getBounds()
+  if (!b) return
+  // Precision 5 falls back to 4 before declaring the viewport too wide.
+  const cells = cellsForViewport(
+    { north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() },
+    precision,
+  )
+  if (!cells) {
+    tooWide.value = true
+    clearDrawnPins()
+    return
+  }
+  tooWide.value = false
+  if (!useSeasonStore().eventId) return
+
+  const seq = ++refreshSeq
+  try {
+    const result = await usePinsStore().getCells(cells)
+    if (seq !== refreshSeq) return
+    lastPins = result.pins
+    mapStore.truncated = result.truncated
+    loadFailed.value = false
+    pushPins()
+  } catch (e) {
+    if (seq !== refreshSeq) return
+    console.warn('[map] cell query failed', e)
+    loadFailed.value = true
+  }
+}
+
+// ---- Events -------------------------------------------------------------
+
+function saveViewport(m: MapboxMap): void {
+  const c = m.getCenter()
+  useMapStore().setViewport({ lat: c.lat, lng: c.lng }, m.getZoom())
+}
+
+interface RenderedFeature {
+  layer?: { id: string }
+  properties?: Record<string, unknown> | null
+  geometry?: { type: string; coordinates?: unknown }
+}
+
+function onClick(e: MapMouseEvent): void {
+  const m = map
+  if (!m) return
+  const layers = [LAYER_PINS, LAYER_CLUSTERS].filter((id) => m.getLayer(id))
+  if (!layers.length) return
+  const box: [PointLike, PointLike] = [
+    [e.point.x - TAP_PAD_PX, e.point.y - TAP_PAD_PX],
+    [e.point.x + TAP_PAD_PX, e.point.y + TAP_PAD_PX],
+  ]
+  // mapbox-gl's feature type extends GeoJSON.Feature, which isn't installed here.
+  const features = m.queryRenderedFeatures(box, { layers }) as unknown as RenderedFeature[]
+
+  const pin = features.find((f) => f.layer?.id === LAYER_PINS)
+  const pinId = pin?.properties?.id
+  if (typeof pinId === 'string') {
+    void usePinsStore().selectPin(pinId)
+    selectHandler?.(pinId)
+    return
+  }
+
+  const cluster = features.find((f) => f.layer?.id === LAYER_CLUSTERS)
+  const clusterId = cluster?.properties?.cluster_id
+  if (!cluster || typeof clusterId !== 'number') return
+  const geom = cluster.geometry
+  const coords = geom?.type === 'Point' ? (geom.coordinates as [number, number]) : null
+  const src = m.getSource<GeoJSONSource>(SRC_PINS)
+  if (!src || !coords) return
+  src.getClusterExpansionZoom(clusterId, (err, zoom) => {
+    if (err || zoom === null || zoom === undefined) return
+    m.easeTo({ center: coords, zoom })
+  })
+}
+
+function wire(m: MapboxMap): void {
+  m.on('style.load', () => {
+    try {
+      installStyleContent(m)
+    } catch (e) {
+      console.error('[map] could not add layers', e)
+    }
+    styleLoadedOnce = true
+    status.value = 'ready'
+    scheduleRefresh(0)
+  })
+  m.on('styleimagemissing', (e: { id?: string }) => {
+    if (e.id === MARKER_IMAGE.verified || e.id === MARKER_IMAGE.unverified) {
+      try {
+        addMarkerImages(m, themeFor(currentSeason()))
+      } catch {
+        // Nothing more to do; the pin layer shows without icons.
+      }
+    }
+  })
+  m.on('movestart', (e: { originalEvent?: unknown }) => {
+    if (e.originalEvent) userMoved = true
+  })
+  m.on('moveend', () => {
+    saveViewport(m)
+    scheduleRefresh()
+  })
+  m.on('click', onClick)
+  for (const layer of [LAYER_PINS, LAYER_CLUSTERS]) {
+    m.on('mouseenter', layer, () => (m.getCanvas().style.cursor = 'pointer'))
+    m.on('mouseleave', layer, () => (m.getCanvas().style.cursor = ''))
+  }
+  m.on('error', (e: { error?: unknown }) => {
+    console.warn('[map]', e.error ?? e)
+    // Before the first style loads (bad token, style 404, offline) the map is unusable.
+    if (!styleLoadedOnce) status.value = 'error'
+  })
+}
+
+function hookUnload(): void {
+  if (unloadHooked) return
+  unloadHooked = true
+  // Only a real unload; a bfcache'd page keeps its map.
+  window.addEventListener('pagehide', (e) => {
+    if (e.persisted || !map) return
+    map.remove()
+    map = null
+  })
+}
+
+async function createMap(): Promise<MapboxMap | null> {
+  const token = env.mapbox.token
+  if (!token) {
+    status.value = 'no-token'
+    return null
+  }
+  status.value = 'loading'
+  try {
+    const [mod] = await Promise.all([import('mapbox-gl'), import('mapbox-gl/dist/mapbox-gl.css')])
+    const mapboxgl = mod.default
+    mapboxgl.accessToken = token
+    const view = initialView()
+    const m = new mapboxgl.Map({
+      container: getMapEl(),
+      style: themeFor(currentSeason()).mapStyle,
+      center: [view.lng, view.lat],
+      zoom: view.zoom,
+      attributionControl: true,
+      dragRotate: false,
+      pitchWithRotate: false,
+      touchPitch: false,
+      maxPitch: 0,
+    })
+    m.touchZoomRotate.disableRotation()
+    map = m
+    wire(m)
+    hookUnload()
+    if (!useMapStore().center) void centerOnUserIfGranted()
+    return m
+  } catch (e) {
+    console.error('[map] failed to create', e)
+    status.value = 'error'
+    return null
+  }
+}
+
+// ---- Location -------------------------------------------------------------
+
+function setMyLocation(ll: LatLng): void {
+  myLocation = ll
+  pushMe()
+}
+
+function currentPosition(opts: PositionOptions): Promise<GeolocationPosition> {
+  return new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, opts))
+}
+
+/** SPEC F2: centre on the user if location is already permitted (never prompts). */
+async function centerOnUserIfGranted(): Promise<void> {
+  try {
+    if (!navigator.permissions || !('geolocation' in navigator)) return
+    const perm = await navigator.permissions.query({ name: 'geolocation' })
+    if (perm.state !== 'granted') return
+    const pos = await currentPosition({ enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 })
+    const ll = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+    setMyLocation(ll)
+    if (map && !userMoved) map.jumpTo({ center: [ll.lng, ll.lat], zoom: LOCATE_ZOOM })
+  } catch {
+    // Unsupported or failed: stay on the launch centre.
+  }
+}
+
+function showLocateError(err: LocateError): void {
+  locateError.value = err
+  if (locateErrorTimer) clearTimeout(locateErrorTimer)
+  locateErrorTimer = setTimeout(() => (locateError.value = null), 5000)
+}
+
+// ---- Public composable -----------------------------------------------------
+
+export interface UseMapboxOptions {
+  onSelectPin?: (id: string) => void
+}
+
+export function useMapbox(host: Ref<HTMLElement | null>, options: UseMapboxOptions = {}) {
+  selectHandler = options.onSelectPin ?? null
+  const season = useSeasonStore()
+  const pins = usePinsStore()
+
+  /** Show the map in the host: creates the single Map the first time, reattaches after. */
+  async function activate(): Promise<void> {
+    const el = host.value
+    if (!el) return
+    if (!env.mapbox.token) {
+      status.value = 'no-token'
+      return
+    }
+    const container = getMapEl()
+    if (container.parentElement !== el) el.appendChild(container)
+    if (!map) {
+      creating ??= createMap().finally(() => (creating = null))
+      await creating
+    }
+    resize()
+  }
+
+  function resize(): void {
+    if (!map || !mapEl || mapEl.clientWidth === 0 || mapEl.clientHeight === 0) return
+    map.resize()
+  }
+
+  /** Locate-me button: prompts for permission, then flies to the user. */
+  function locate(): void {
+    if (!('geolocation' in navigator)) {
+      showLocateError('unavailable')
+      return
+    }
+    locating.value = true
+    locateError.value = null
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        locating.value = false
+        const ll = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+        setMyLocation(ll)
+        map?.flyTo({ center: [ll.lng, ll.lat], zoom: LOCATE_ZOOM })
+      },
+      (err) => {
+        locating.value = false
+        showLocateError(err.code === err.PERMISSION_DENIED ? 'denied' : 'unavailable')
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 },
+    )
+  }
+
+  /** "Zoom in" chips: up to a zoom where pins load, else one step further. */
+  function zoomIn(): void {
+    if (!map) return
+    const z = map.getZoom()
+    map.easeTo({ zoom: z < 12 ? 12 : z + 1 })
+  }
+
+  /** Re-run the cell query now (e.g. a retry button). */
+  function retry(): void {
+    scheduleRefresh(0)
+  }
+
+  // Season switch: same Map, new style. style.load re-adds images/sources/layers.
+  watch(
+    () => season.season,
+    (next, prev) => {
+      if (!map || !next || next === prev) return
+      lastPins = []
+      refreshSeq++
+      useMapStore().truncated = false
+      pushPins()
+      // diff: false forces a full reload so 'style.load' always fires.
+      map.setStyle(themeFor(next).mapStyle, { diff: false } as Parameters<MapboxMap['setStyle']>[1])
+    },
+  )
+
+  // Verified only: client-side filter of what's already loaded.
+  watch(() => pins.verifiedOnly, pushPins)
+
+  return {
+    status: readonly(status),
+    tooWide: readonly(tooWide),
+    loadFailed: readonly(loadFailed),
+    locating: readonly(locating),
+    locateError: readonly(locateError),
+    activate,
+    resize,
+    locate,
+    zoomIn,
+    retry,
+  }
+}

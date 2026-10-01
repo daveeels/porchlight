@@ -9,6 +9,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/a/:areaKey', redirect: (to) => ({ path: '/', query: { area: to.params.areaKey } }) },
   { path: '/t/:townKey', redirect: (to) => ({ path: '/', query: { town: to.params.townKey } }) },
   { path: '/p/:pinId', redirect: (to) => ({ path: '/', query: { pin: to.params.pinId } }) },
+  { path: '/sign-in', name: 'sign-in', component: () => import('@/views/SignInPage.vue') },
   { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/views/NotFoundPage.vue') },
 ]
 

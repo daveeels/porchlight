@@ -104,6 +104,7 @@ eventId: 'HALLOWEEN_2026', 'CHRISTMAS_2026', ...
 1. If the user picked a usable season before → use that (saved in `localStorage`).
 2. Else by date: **Sep 15 – Nov 7 → Halloween**, **Nov 8 – Jan 7 → Christmas**.
 3. Else (Jan 8 – Sep 14) → off-season landing ("See you in October").
+4. In-season but the by-date season isn't usable (e.g. Nov 8 before the Christmas event exists) → use another usable season if there is one, else the off-season landing.
 
 The season switcher is only shown when more than one event doc exists. **For the Halloween launch only Halloween exists**, so no switcher.
 
@@ -147,6 +148,7 @@ Switching season calls `map.setStyle()` on the **existing** map. On `style.load`
 - Pins load only at **zoom ≥ 11**. Below that, show "Zoom in to see displays".
 - Re-query on `moveend`, debounced 400 ms, using **fixed geohash cells** (not `geohashQueryBounds` — its ranges change on every pan and can't be cache keys):
   - Cover the viewport with geohash cells: precision 4 at zoom 11–12.99, precision 5 at zoom ≥ 13, at most 9 cells.
+  - If precision 5 needs more than 9 cells, fall back to precision 4 before showing the zoom hint.
   - Per cell: `where('eventId','==',id).where('status','==','ACTIVE').orderBy('geohash').startAt(cell).endAt(cell + '~').limit(200)`.
   - Cache key `${eventId}:${cell}`, kept 5 minutes. Only fetch cells not in the cache.
   - If a cell returns exactly 200, show "Zoom in for more".
@@ -233,8 +235,22 @@ interface AppConfig {
   mapAccess: 'PUBLIC' | 'ACCOUNT' | 'PAID' | 'OFF';  // default 'ACCOUNT'. 'PAID' only valid from Phase 5.
   launchCenter: { lat: number; lng: number; zoom: number };  // Tauranga: { lat: -37.6878, lng: 176.1651, zoom: 11 }
   defaultAreaKey: string | null;                              // 'tauranga' — the list the home screen opens on
+  launchMode: 'BETA' | 'LIVE';                                // default 'BETA' until launch day
+  feedbackEmail: string;                                      // where "Send feedback" goes
+}
+
+// config/testers — admin write, NO client read (server checks it)
+interface TesterList {
+  emails: string[];             // lowercased Google account emails allowed to write during BETA
 }
 ```
+**Beta mode** (`launchMode: 'BETA'`):
+- Everyone can browse, exactly as when live.
+- Every write callable (`createPin`, `updatePin`, `deletePin`, `castVote`, `reportPin`) first checks the caller's verified email (from `getAuth().getUser(uid)`, before the transaction) is in `config/testers.emails`, or the caller is an admin. Otherwise `permission-denied`: "Porchlight is in private beta — posting opens soon."
+- The client shows a small **Beta** badge in the header and a **Send feedback** item in the account menu. It opens a `mailto:` to `feedbackEmail` with the subject "Porchlight beta feedback" and a body pre-filled with the current URL, app version (build hash), browser user agent, screen size and signed-in state.
+- `index.html` has `<meta name="robots" content="noindex">` while in beta (a build-time flag, `VITE_NOINDEX=true`).
+- Launch day = set `launchMode: 'LIVE'`, rebuild without `VITE_NOINDEX`, and delete any obviously-test pins with `scripts/moderate.ts` (testers' real displays stay).
+
 `mapAccess` is a **cost lever, not security** (the Mapbox token is public anyway). `'OFF'` is the emergency switch if Mapbox usage spikes: the app falls back to list-only for everyone. The client reads it on start.
 
 ### `events/{eventId}` — public read, admin write
@@ -275,7 +291,7 @@ interface DisplayPin {
   place: {                      // looked up from the OFFSET point
     areaKey: string | null;     // from areas.json, e.g. 'tauranga'; null if outside every area
     area: string | null;        // 'Tauranga & surrounds'
-    townKey: string;            // GeoNames slug, e.g. 'papamoa-beach-bop-nz'
+    townKey: string;            // GeoNames slug, e.g. 'papamoa-beach-e8-nz' (name-admin1code-cc)
     town: string;               // 'Pāpāmoa Beach'
     region: string;             // 'Bay of Plenty'
     countryCode: string;        // 'NZ'
@@ -507,6 +523,7 @@ Each action sets `moderation.reviewedBy`, `reviewedAt`, `note`. Until the admin 
 | Rule | Enforced by |
 |---|---|
 | Anonymous = read only | Rules: `write: false` everywhere; callables require `auth` |
+| Private beta: only testers write | `config/testers` check in every write callable while `launchMode == 'BETA'` |
 | One pin per user per event | Fixed doc ID + transaction in `createPin` |
 | Max 3 creates per event; admin-removed stays removed | `createPin` transaction |
 | Rate limits (create 3, update 10, vote 40, report 20 per day) | `rateLimits/{uid}` in each callable |
@@ -548,7 +565,21 @@ Each action sets `moderation.reviewedBy`, `reviewedAt`, `note`. Until the admin 
 
 ## 8. Build plan
 
-Today is **Thu Oct 1, 2026**. Target: **live Sat Oct 17**, which leaves two weeks for pins to build up before Oct 31. The dates assume a few focused hours most days. **Security rules in §6 are never cut to save time.**
+Today is **Thu Oct 1, 2026**. The code is built by Claude Code agents, so phases run back to back as fast as they pass their checks — the dates below are targets, not waits. **Security rules in §6 are never cut to save time.**
+
+| When | Milestone |
+|---|---|
+| Oct 1–3 | Phases 0–3 built; browser (E2E) tests passing |
+| ~Oct 3–4 | **Private beta** live at `porchlight-nz.firebaseapp.com` (`launchMode: 'BETA'`) |
+| ~Oct 4–12 | Beta testing by the owner + 3–5 testers (mix of iPhone and Android); bugs fixed as they come in |
+| ~Oct 13–15 | Feature freeze, flip to `LIVE`, announce |
+| Oct 31 | Halloween |
+
+### Testing (every phase)
+- **Unit** (Vitest), **rules** (`@firebase/rules-unit-testing`), **functions** (callables against the emulator).
+- **Browser E2E** (Playwright, headless Chromium + WebKit) against the emulators with seeded data, at **iPhone 13** and **Pixel 7** viewports. Covers: open `/a/tauranga`, search "papamoa", town chips, verified-only, open a pin sheet, Near me (mocked geolocation), sign-in (Auth emulator Google popup), add a display (with a GPS-tagged test photo), my pin edit/delete, vote/change vote, report, map tab (signed out → prompt; signed in → map container renders). Screenshots saved to `tests/e2e/__screenshots__/` for review. Command: `npm run test:e2e`.
+- Every fix is followed by the full suite, so a fix can't silently break something else.
+- **Beta testers** cover what automation can't: real phones, mobile data, iPhone photos, the home-screen app, confusing wording.
 
 ### Phase 0 — Foundations (Oct 1–3)
 - Scaffold Vite + Vue + TS; add Ionic Vue, Pinia, Vue Router, Tailwind v4 (no Preflight, layer order from §2), mapbox-gl, firebase, geofire-common, Vitest, rules-unit-testing.
@@ -587,12 +618,14 @@ Today is **Thu Oct 1, 2026**. Target: **live Sat Oct 17**, which leaves two week
 - `rebuildPlaceIndex`.
 - Rest of the About page, manifest + icons (if `vite-plugin-pwa` is used: `navigateFallbackDenylist: [/^\/__\//]`).
 - Turn on Firestore + Storage App Check enforcement.
-- Real-device smoke test (iPhone Safari, Android Chrome, installed home-screen app).
-- **Launch** (§8 launch plan).
+- Beta mode: `launchMode`, `config/testers` checks in all write callables, Beta badge, Send feedback, `noindex` flag, `scripts/setTesters.ts` (add/remove tester emails).
+- Playwright E2E suite (see Testing above) passing on both viewports.
+- Deploy the **private beta**; real-device smoke test (iPhone Safari, Android Chrome, installed home-screen app).
+- **Launch** after beta testing (§8 launch plan).
 
 **Done when:** 3 counted "It's here" votes verify a pin; changing a vote moves the counts correctly · 3 counted "Not there" votes (outnumbering "here") drop a pin from results, and after admin APPROVE the next vote doesn't re-hide it · a photo change resets votes and a mid-edit vote isn't double-counted · Google sign-in still works with the service worker installed · 3 counted reports hide a pin; self-vote and double-report are rejected · an email-link-style account younger than 24 h votes but isn't counted (function test with a fake provider) · requests without App Check are rejected in prod **and photos still load** · a new user goes from link to live pin in under 3 minutes on a real phone.
 
-**If behind on Oct 14, cut in this order** (not security): installable manifest → `/p/` share links → edit pin (delete + re-add instead) → popular towns list. Don't slip past Oct 20.
+**If beta testing finds more than can be fixed by ~Oct 15, cut in this order** (never security): installable manifest → `/p/` share links → edit pin (delete + re-add instead) → popular places list. Don't let launch slip past Oct 20.
 
 ### Launch plan
 - **Launch in Tauranga & surrounds only.** 30 pins in one area beats 3 across a country. `config/app.defaultAreaKey = 'tauranga'`.

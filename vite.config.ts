@@ -12,7 +12,15 @@ export default defineConfig({
     },
   },
   test: {
-    environment: 'happy-dom',
-    include: ['tests/unit/**/*.test.ts'],
+    projects: [
+      {
+        extends: true,
+        test: { name: 'unit', environment: 'happy-dom', include: ['tests/unit/**/*.test.ts'] },
+      },
+      {
+        // Pure server-side libraries in functions/src/lib (offset, places, thresholds).
+        test: { name: 'functions', environment: 'node', include: ['tests/functions/**/*.test.ts'] },
+      },
+    ],
   },
 })

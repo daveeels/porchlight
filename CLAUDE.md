@@ -6,7 +6,7 @@
 
 ## Current phase
 
-Phase 0 — Foundations. **Halloween launch target: Sat Oct 17, 2026.** (Update this line as phases complete. See SPEC §8.)
+Phase 2 — Sign in + add a display (Phase 1 done). **Halloween launch target: Sat Oct 17, 2026.** (Update this line as phases complete. See SPEC §8.)
 
 Deadline mindset: build the smallest thing that meets each phase's "done when". Don't add features beyond the current phase. **Never cut the security rules to save time.**
 

@@ -1,4 +1,42 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "pins",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "eventId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "geohash", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pins",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "eventId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "place.areaKey", "order": "ASCENDING" },
+        { "fieldPath": "rankScore", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pins",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "eventId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "place.townKey", "order": "ASCENDING" },
+        { "fieldPath": "rankScore", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pins",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "expiresAt", "order": "ASCENDING" }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }
