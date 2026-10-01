@@ -6,7 +6,7 @@
 
 ## Current phase
 
-Phase 2 — Sign in + add a display (Phase 1 done). **Halloween launch target: Sat Oct 17, 2026.** (Update this line as phases complete. See SPEC §8.)
+Phase 3 done — private beta deploy next, then the polish pass (see SPEC §8). **Halloween launch target: ~Oct 13–15, 2026.**
 
 Deadline mindset: build the smallest thing that meets each phase's "done when". Don't add features beyond the current phase. **Never cut the security rules to save time.**
 

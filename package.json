@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
+    "build:beta": "vue-tsc -b && vite build --mode beta",
     "preview": "vite preview",
     "typecheck": "vue-tsc -b",
     "test": "vitest run",
@@ -19,8 +20,11 @@
     "emulators": "firebase emulators:start --project demo-porchlight --import=.emulator-data --export-on-exit=.emulator-data",
     "seed": "tsx scripts/seed.ts",
     "places:build": "tsx scripts/buildPlaces.ts",
+    "icons:build": "tsx scripts/buildIcons.ts",
     "events:create": "tsx scripts/createEvents.ts",
-    "testers": "tsx scripts/setTesters.ts"
+    "testers": "tsx scripts/setTesters.ts",
+    "admin": "tsx scripts/setAdmin.ts",
+    "moderate": "tsx scripts/moderate.ts"
   },
   "dependencies": {
     "@ionic/vue": "^9.0.6",
@@ -45,10 +49,12 @@
     "firebase-admin": "^14.5.0",
     "firebase-tools": "^15.32.0",
     "happy-dom": "^20.14.5",
+    "sharp": "^0.35.5",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
     "typescript": "~6.0.3",
     "vite": "^8.3.1",
+    "vite-plugin-pwa": "^1.3.0",
     "vitest": "^5.0.3",
     "vue-tsc": "^3.3.11"
   },

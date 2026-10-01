@@ -62,10 +62,5 @@ export function pinIdFor(uid: string, eventId: string): string {
   return `${uid}_${eventId}`
 }
 
-export function isVerified(hereVotes: number, notThereVotes: number): boolean {
-  return hereVotes >= 3 && hereVotes >= 2 * notThereVotes
-}
-
-export function rankScoreOf(pin: Pick<PinDoc, 'isFeatured' | 'verified' | 'hereVotes' | 'notThereVotes'>): number {
-  return (pin.isFeatured ? 100000 : 0) + (pin.verified ? 10000 : 0) + pin.hereVotes - pin.notThereVotes
-}
+// Threshold logic lives only in lib/thresholds.ts; re-exported for existing imports.
+export { isVerified, rankScoreOf } from '../lib/thresholds.js'

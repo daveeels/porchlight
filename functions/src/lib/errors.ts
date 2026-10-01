@@ -15,6 +15,11 @@ export type FailReason =
   | 'PHOTO_INVALID'
   | 'NOT_FOUND'
   | 'NOT_EDITABLE'
+  // Phase 3: votes, reports, moderation.
+  | 'OWN_PIN'
+  | 'NOT_VOTABLE'
+  | 'ALREADY_REPORTED'
+  | 'NOT_ADMIN'
 
 export interface FailDetails {
   reason: FailReason

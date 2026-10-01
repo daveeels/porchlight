@@ -181,3 +181,67 @@ export function parseDeletePinInput(data: unknown): DeletePinInput {
   const d = requireObject(data, ['eventId'])
   return { eventId: parseEventId(d.eventId) }
 }
+
+// ---- Phase 3: votes, reports, moderation ---------------------------------
+
+export type VoteValue = 'HERE' | 'NOT_THERE'
+export const VOTE_VALUES: readonly VoteValue[] = ['HERE', 'NOT_THERE']
+
+export type ReportReason = 'NOT_A_DISPLAY' | 'INAPPROPRIATE' | 'PRIVACY' | 'SPAM' | 'OTHER'
+export const REPORT_REASONS: readonly ReportReason[] = ['NOT_A_DISPLAY', 'INAPPROPRIATE', 'PRIVACY', 'SPAM', 'OTHER']
+
+export type ModerationAction = 'APPROVE' | 'REMOVE' | 'RESTORE' | 'BAN_USER'
+export const MODERATION_ACTIONS: readonly ModerationAction[] = ['APPROVE', 'REMOVE', 'RESTORE', 'BAN_USER']
+
+export const NOTE_MAX = 500
+
+function oneOf<T extends string>(value: unknown, allowed: readonly T[], message: string): T {
+  if (typeof value !== 'string' || !(allowed as readonly string[]).includes(value)) invalid(message)
+  return value as T
+}
+
+export interface CastVoteInput {
+  pinId: string
+  value: VoteValue
+}
+
+export function parseCastVoteInput(data: unknown): CastVoteInput {
+  const d = requireObject(data, ['pinId', 'value'])
+  return { pinId: parsePinId(d.pinId), value: oneOf(d.value, VOTE_VALUES, 'Invalid vote.') }
+}
+
+export interface ReportPinInput {
+  pinId: string
+  reason: ReportReason
+}
+
+export function parseReportPinInput(data: unknown): ReportPinInput {
+  const d = requireObject(data, ['pinId', 'reason'])
+  return { pinId: parsePinId(d.pinId), reason: oneOf(d.reason, REPORT_REASONS, 'Pick a reason.') }
+}
+
+/** Moderator's note: `undefined` / `null` / blank → null; plain text up to NOTE_MAX. */
+export function parseNote(value: unknown): string | null {
+  if (value === undefined || value === null) return null
+  if (typeof value !== 'string') invalid('Invalid note.')
+  const note = value.trim()
+  if (note.length > NOTE_MAX) invalid(`Note must be at most ${NOTE_MAX} characters.`)
+  if (note.length === 0) return null
+  if (DESCRIPTION_CTRL_RE.test(note) || FORMAT_RE.test(note)) invalid("Note contains characters we don't allow.")
+  return note
+}
+
+export interface ModeratePinInput {
+  pinId: string
+  action: ModerationAction
+  note: string | null
+}
+
+export function parseModeratePinInput(data: unknown): ModeratePinInput {
+  const d = requireObject(data, ['pinId', 'action', 'note'])
+  return {
+    pinId: parsePinId(d.pinId),
+    action: oneOf(d.action, MODERATION_ACTIONS, 'Unknown moderation action.'),
+    note: parseNote(d.note),
+  }
+}

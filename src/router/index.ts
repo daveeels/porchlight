@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from '@ionic/vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import ExplorePage from '@/views/ExplorePage.vue'
+import { isChunkLoadError, recoverFromStaleChunk } from '@/lib/staleChunk'
 import { useAuthStore } from '@/stores/auth'
 
 declare module 'vue-router' {
@@ -18,6 +19,8 @@ const routes: RouteRecordRaw[] = [
   { path: '/t/:townKey', redirect: (to) => ({ path: '/', query: { town: to.params.townKey } }) },
   { path: '/p/:pinId', redirect: (to) => ({ path: '/', query: { pin: to.params.pinId } }) },
   { path: '/sign-in', name: 'sign-in', component: () => import('@/views/SignInPage.vue') },
+  // Email sign-in links land here (SPEC F11).
+  { path: '/auth/complete', name: 'auth-complete', component: () => import('@/views/AuthCompletePage.vue') },
   {
     path: '/submit',
     name: 'submit',
@@ -42,4 +45,10 @@ router.beforeEach(async (to) => {
   await auth.init()
   if (auth.isSignedIn) return true
   return { path: '/sign-in', query: { redirect: to.fullPath } }
+})
+
+// After a deploy, an open tab's lazy pages point at files that no longer
+// exist. Load the page the user was going to in full (once; see staleChunk).
+router.onError((err, to) => {
+  if (isChunkLoadError(err)) recoverFromStaleChunk(to.fullPath)
 })

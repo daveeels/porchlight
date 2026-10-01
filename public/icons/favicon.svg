@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Porchlight favicon: the mark simplified for 16-32 px (no lantern, bolder
+       strokes) on the dark season background. Source for scripts/buildIcons.ts. -->
+  <defs>
+    <linearGradient id="d" x1="0" y1="14" x2="0" y2="27" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffe3a3"/>
+      <stop offset="1" stop-color="#ff7a1a"/>
+    </linearGradient>
+    <radialGradient id="g" cx="16" cy="21" r="14" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff7a1a" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#ff7a1a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="32" height="32" rx="7" fill="#1a1025"/>
+  <rect width="32" height="32" rx="7" fill="url(#g)"/>
+  <path d="M5 15.5 L16 6.5 L27 15.5" fill="none" stroke="#ff7a1a" stroke-width="3.2"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M11.5 27 V19.5 A4.5 4.5 0 0 1 20.5 19.5 V27 Z" fill="url(#d)"/>
+</svg>

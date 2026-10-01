@@ -46,7 +46,7 @@ People search for an area or suburb (or tap "Near me") and see decorated houses 
 | Map | **MapLibre GL JS** + **OpenFreeMap** public vector tiles | Free, no API key, no usage limits — but no SLA. Styles: OpenFreeMap `dark` (Halloween), `positron` (Christmas, Phase 4); style URLs live in config (`VITE_MAP_STYLE_HALLOWEEN` / `VITE_MAP_STYLE_CHRISTMAS`, defaults in `src/config/env.ts`). Text layers must use `text-font: ['Noto Sans Regular']` (the only fontstack OpenFreeMap's glyph server has). Built-in GeoJSON clustering. Keep the OSM / OpenMapTiles attribution visible. **No Leaflet, never `tile.openstreetmap.org`.** Escape hatch if OpenFreeMap is down or slow: self-host OpenFreeMap or Protomaps, or switch to a paid MapLibre-compatible provider — only the style URLs change. Keep all map code inside `useMap`. |
 | Geo queries | Geohash via `geofire-common` | Firestore Standard edition |
 | Place lookup | GeoNames dataset + hand-defined launch areas, bundled in Functions | Free, storable. No geocoding API (commercial geocoders' terms don't allow storing results). |
-| Auth | Firebase Auth — **Google** (Halloween launch), + **Email link** (Phase 4), + **Sign in with Apple** (Phase 6, required by Apple once Google is offered on iOS) | No passwords |
+| Auth | Firebase Auth — **Google** (Halloween launch), + **Email link** (Phase 3, F11 — brought forward), + **Sign in with Apple** (Phase 6, required by Apple once Google is offered on iOS) | No passwords |
 | Database | Cloud Firestore | Clients read, **never write** (§6) |
 | Files | Cloud Storage for Firebase | |
 | Server logic | Cloud Functions for Firebase (2nd gen, TypeScript, Node 22) | Callables for all writes. `"engines": { "node": "22" }` |
@@ -159,7 +159,8 @@ Switching season calls `map.setStyle()` on the **existing** map. On `style.load`
 **F3. Pin detail sheet** — `IonModal`, breakpoints `[0, 0.4, 0.9]`
 - Photo, title, description, town, ✓ Verified / Unverified, counts ("12 people say it's here").
 - "Open in Maps" link (to the offset location). Note: "Location is approximate."
-- Signed in: **It's here ✓**, **Not there ✗**, **Report** (reason picker). Shows the user's current vote.
+- Signed in: **It's here ✓**, **Not there ✗** under a visible "Did you see it?", **Report** (reason picker). Shows the user's current vote.
+- Order: title, place, counts, then the vote buttons (on screen at the 0.4 breakpoint), then photo, description, Open in Maps / Share, Report.
 - Anonymous: the same buttons open "Sign in to vote".
 - Not shown on your own pin: vote/report buttons.
 
@@ -168,11 +169,13 @@ Switching season calls `map.setStyle()` on the **existing** map. On `style.load`
 - **Serve the app from the same domain as the Firebase `authDomain`.** For launch that's `<project>.firebaseapp.com`: share only those links, and on load, if `location.host` isn't `authDomain`, `location.replace` to the same path on `authDomain` (Hosting also serves `<project>.web.app`). Otherwise Safari and Chrome's third-party storage blocking can break sign-in.
 - After sign-in, go back with `router.back()` (never `push('/')`) to where the user was. Exception: when the `/submit` / `/me` auth guard sent them (`/sign-in?redirect=<path>`), `router.replace` to that path (same-site paths only), so the guarded page replaces `/sign-in` and Explore stays at the root.
 - Test in iOS Safari *and* in the installed home-screen app — popups behave differently there.
-- **In-app browsers** (Facebook, Instagram, Messenger — detected from the user agent): Google refuses to sign in inside them. The sign-in page shows, above the buttons: *"To sign in with Google, open Porchlight in your browser."*
+- **In-app browsers** (Facebook, Instagram, Messenger — detected from the user agent): Google refuses to sign in inside them. **Email sign-in works there and comes first:** *"You're inside Facebook — sign in with your email below."* then the email form. Below it, collapsed: **"Prefer Google? Open Porchlight in Safari/Chrome"**, containing:
   - Android: an **"Open in Chrome"** button using an `intent://<host><path>#Intent;scheme=https;package=com.android.chrome;end` URL.
-  - iPhone: try `x-safari-https://<host><path>`; always also show a 2-step picture guide (**⋯ → Open in external browser**).
-  - The Google button is still shown but de-emphasised; **email sign-in works in the in-app browser** and is the suggested option there.
-  - "Open in Maps" from an in-app browser must open the real Maps app (Android `geo:` / Google Maps intent; iPhone `maps://` with a Google Maps web fallback).
+  - iPhone: try `x-safari-https://<host><path>`; always also show a 2-step picture guide (**⋯ → Open in browser**, which some versions call "Open in external browser").
+  - "Copy link", and the Google button (still offered, but it usually fails there).
+  - The reopened page is `/sign-in?redirect=<return path>`, so the real browser returns to the display the user was on.
+  - Once "Check your inbox" shows, the Google options are hidden (on every browser).
+  - "Open in Maps" from an in-app browser must open the real Maps app (Android `geo:` / Google Maps intent; iPhone `maps://` with a Google Maps web fallback). In iPhone browsers and the home-screen app it opens `https://maps.apple.com/?q=…` in a new tab (a universal link: no prompt, never navigates Porchlight away).
 - **Facebook Login is deferred** (known risk; see §11 #9).
 
 **F5. Add my display** (signed in)
@@ -209,9 +212,11 @@ Flow: location → photo → details → preview → submit → success.
 
 **F10. Installable (the preferred way to use Porchlight)**
 - Web app manifest + icons (name "Porchlight", standalone display, season theme colour) so it installs to the home screen. A full offline service worker comes in Phase 4.
-- **Install prompt:** a dismissible "Add Porchlight to your home screen" card, shown once after real use (e.g. 2nd visit, or after opening 3 pins) — never on first load, never inside an in-app browser, never when already installed (`display-mode: standalone`). Dismissal remembered in `localStorage` for 14 days.
+- **Install prompt:** a dismissible, one-row "Add Porchlight to your home screen" card, shown once after real use (e.g. 2nd visit, or after opening 3 pins) — never on first load, never when already installed (`display-mode: standalone`). Dismissal remembered in `localStorage` for 14 days.
   - Android/Chrome: one-tap install via the captured `beforeinstallprompt` event.
-  - iPhone/Safari: a 2-step guide (**Share → Add to Home Screen**).
+  - iPhone/iPad: "How?" expands a 2-step guide (**Share → Add to Home Screen**) — in Safari, and in Chrome/Edge/Firefox on iOS 16.4+.
+  - Inside an in-app browser (installing is impossible there): "How?" explains to open Porchlight in Safari/Chrome first, with the same open-in-browser link as `/sign-in` (F4) for the current page.
+- **After a deploy**, open tabs and the installed app can't load the old lazy files: a failed dynamic import reloads the page (or loads the route being opened) once, guarded in `sessionStorage` (`src/lib/staleChunk.ts`).
 - No Apple developer fee is needed: iPhone users install the PWA from Safari. Android can later be published to Google Play as a Trusted Web Activity (one-time US$25) — optional.
 - If `vite-plugin-pwa` is used for the manifest, its service worker **must** have `workbox.navigateFallbackDenylist: [/^\/__\//]` from day one.
 
@@ -269,7 +274,7 @@ interface TesterList {
 - Everyone can browse, exactly as when live.
 - Every write callable that adds or changes content (`createPin`, `updatePin`, `castVote`, `reportPin`) first checks the caller's verified email (from `getAuth().getUser(uid)`, before the transaction) is in `config/testers.emails`, or the caller is an admin. Otherwise `permission-denied`: "Porchlight is in private beta — posting opens soon." `deletePin` has **no** beta gate: deleting only removes data, so a tester taken off the list can still delete their display.
 - The client shows a small **Beta** badge in the header and a **Send feedback** item in the account menu. It opens a `mailto:` to `feedbackEmail` with the subject "Porchlight beta feedback" and a body pre-filled with the current URL, app version (build hash), browser user agent, screen size and signed-in state.
-- `index.html` has `<meta name="robots" content="noindex">` while in beta (a build-time flag, `VITE_NOINDEX=true`).
+- `index.html` has `<meta name="robots" content="noindex">` while in beta (a build-time flag: `npm run build:beta`, or `VITE_NOINDEX=true`).
 - Launch day = set `launchMode: 'LIVE'`, rebuild without `VITE_NOINDEX`, and delete any obviously-test pins with `scripts/moderate.ts` (testers' real displays stay).
 
 `mapAccess` is a **cost lever, not security** (the map needs no key, and Firestore reads are the real cost). `'OFF'` is the emergency switch if map-driven reads spike or the tile provider is down: the app falls back to list-only for everyone. The client reads it on start.
@@ -333,7 +338,7 @@ interface DisplayPin {
     decision: 'NONE' | 'APPROVED' | 'REJECTED';
     reviewedBy: string | null;
     reviewedAt: Timestamp | null;
-    note: string | null;
+    note: string | null;        // always null on the pin: notes live in moderationActions (public on ACTIVE pins)
   };
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -541,7 +546,7 @@ rateLimits:            no client access
 | `RESTORE` | REMOVED (by admin) → ACTIVE | `removedBy = null`, `decision = 'APPROVED'` |
 | `BAN_USER` | owner's pins → REMOVED | Ban procedure (§5 `users`) |
 
-Each action sets `moderation.reviewedBy`, `reviewedAt`, `note`. Until the admin UI (Phase 4), admins run `scripts/moderate.ts`, which calls this function. **Never hand-edit pin fields in the console.**
+Each action sets `moderation.decision`, `reviewedBy`, `reviewedAt` on the pin; the free-text `note` goes only into `moderationActions` (admin read) — anyone can read an ACTIVE pin, so `moderation.note` on the pin stays `null`. The CLI records `reviewedBy: 'cli'` unless `--by <admin email>`. Until the admin UI (Phase 4), admins run `scripts/moderate.ts`, which calls this function. **Never hand-edit pin fields in the console.**
 
 ### Rule → where it's enforced
 
@@ -573,11 +578,11 @@ Each action sets `moderation.reviewedBy`, `reviewedAt`, `note`. Until the admin 
 | `/a/:areaKey` | Redirect route: `redirect: to => ({ path: '/', query: { area: to.params.areaKey } })` | 1 |
 | `/t/:townKey` | Redirect route: `redirect: to => ({ path: '/', query: { town: to.params.townKey } })` | 1 |
 | `/p/:pinId` | Redirect route: `redirect: to => ({ path: '/', query: { pin: to.params.pinId } })` | 1 |
-| `/sign-in` | **SignInPage** — "Continue with Google" (+ email link in Phase 4) | 1 |
+| `/sign-in` | **SignInPage** — "Continue with Google" + "Email me a sign-in link" (F11, Phase 3); in-app browser notice (F4) | 1–3 |
 | `/submit` | **SubmitPinPage** — add/edit flow (auth-guarded) | 2 |
 | `/me` | **MyPinPage** — my pin, status, edit/delete, sign out | 2 |
 | `/about` | **AboutPage** — privacy policy and terms first (Phase 2, needed for the Google consent screen); how it works, verification, guidelines, contact, GeoNames credit (Phase 3) | 2–3 |
-| `/auth/complete` | Email link completion | 4 |
+| `/auth/complete` | **AuthCompletePage** — email link completion (F11): same device signs in; other device asks for the email; expired/used link → "send a new link" | 3 |
 | `/admin` | **AdminQueuePage** (admin-guarded) | 4 |
 | `/feature/:pinId`, `/supporter`, `/checkout/result` | Payment pages | 5 |
 | `*` | NotFoundPage | 1 |

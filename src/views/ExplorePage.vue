@@ -30,8 +30,10 @@ import PlaceSearch from '@/components/explore/PlaceSearch.vue'
 import ResultsList from '@/components/explore/ResultsList.vue'
 import TownChips from '@/components/explore/TownChips.vue'
 import { geolocate, GeolocateFailure, type GeolocateError } from '@/components/explore/geolocate'
+import BetaBadge from '@/components/common/BetaBadge.vue'
 import OfflineBanner from '@/components/common/OfflineBanner.vue'
 import StateMessage from '@/components/common/StateMessage.vue'
+import InstallPrompt from '@/components/install/InstallPrompt.vue'
 import PinDetailSheet from '@/components/pin/PinDetailSheet.vue'
 import { AREAS } from '@/config/areas'
 import type { PlaceResult } from '@/lib/search'
@@ -217,7 +219,7 @@ const nearMeMessage = computed(() => {
   <ion-page>
     <ion-header>
       <ion-toolbar>
-        <ion-title>Porchlight</ion-title>
+        <ion-title>Porchlight<BetaBadge /></ion-title>
         <ion-buttons slot="end">
           <AccountButton />
         </ion-buttons>
@@ -280,6 +282,9 @@ const nearMeMessage = computed(() => {
           </header>
 
           <TownChips v-if="chipsAreaKey" :area-key="chipsAreaKey" :town-key="chipsTownKey" @select="goPlace" />
+
+          <!-- SPEC F10: inline, never over results; shows itself only after real use. -->
+          <InstallPrompt />
 
           <ResultsList v-if="pins.selection" :place-name="placeName" @select="openPin" @browse-default="browseDefault" />
           <StateMessage

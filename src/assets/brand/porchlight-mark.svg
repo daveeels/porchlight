@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Porchlight">
+  <!-- Porchlight mark: a house roofline over a lit, arched front door, with a
+       wall lantern and light spilling onto the step. Transparent background:
+       sits on the dark season palette (#1a1025). Source for scripts/buildIcons.ts. -->
+  <defs>
+    <radialGradient id="pl-glow" cx="256" cy="330" r="220" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff7a1a" stop-opacity="0.55"/>
+      <stop offset="0.5" stop-color="#ff7a1a" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#ff7a1a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="pl-door" x1="0" y1="226" x2="0" y2="404" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffe3a3"/>
+      <stop offset="0.45" stop-color="#ffb04a"/>
+      <stop offset="1" stop-color="#ff7a1a"/>
+    </linearGradient>
+    <radialGradient id="pl-lamp" cx="362" cy="300" r="46" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffd27a" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#ff7a1a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- warm glow behind the doorway -->
+  <ellipse cx="256" cy="330" rx="220" ry="200" fill="url(#pl-glow)"/>
+
+  <!-- roofline -->
+  <path d="M100 244 L256 116 L412 244" fill="none" stroke="#ff7a1a" stroke-width="30"
+        stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- lit arched door -->
+  <path d="M198 404 V284 A58 58 0 0 1 314 284 V404 Z" fill="url(#pl-door)"/>
+  <!-- door knob -->
+  <circle cx="294" cy="344" r="7" fill="#c2410c"/>
+
+  <!-- wall lantern -->
+  <circle cx="362" cy="300" r="46" fill="url(#pl-lamp)"/>
+  <path d="M348 274 H376 L370 266 H354 Z" fill="#ff7a1a"/>
+  <rect x="350" y="276" width="24" height="36" rx="6" fill="#ffe3a3"/>
+  <path d="M348 314 H376" stroke="#ff7a1a" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- step / light spill -->
+  <path d="M160 426 H352" stroke="#ff7a1a" stroke-width="20" stroke-linecap="round"/>
+</svg>

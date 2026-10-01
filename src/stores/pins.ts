@@ -287,7 +287,39 @@ export const usePinsStore = defineStore('pins', () => {
     }
   }
 
+  // ---- Local updates after a vote / report (SPEC F7/F8) -------------------
+
+  /** Bumped whenever cached pins change locally, so the map can redraw from the cache. */
+  const cacheVersion = ref(0)
+
+  /** Merges server-returned fields (counts, verified, status) into every cached copy. */
+  function patchPin(id: string, patch: Partial<Omit<Pin, 'id'>>): void {
+    const apply = (p: Pin): Pin => (p.id === id ? { ...p, ...patch } : p)
+    const known = knownPins.get(id)
+    if (known) knownPins.set(id, apply(known))
+    if (listPins.value.some((p) => p.id === id)) listPins.value = listPins.value.map(apply)
+    for (const entry of cellCache.values()) {
+      if (entry.pins.some((p) => p.id === id)) entry.pins = entry.pins.map(apply)
+    }
+    if (selectedPin.value?.id === id) selectedPin.value = apply(selectedPin.value)
+    cacheVersion.value++
+  }
+
+  /** Drops a pin that is no longer ACTIVE (hidden by votes/reports) from the list, map cells and lookups. */
+  function forgetPin(id: string): void {
+    knownPins.delete(id)
+    if (listPins.value.some((p) => p.id === id)) listPins.value = listPins.value.filter((p) => p.id !== id)
+    for (const entry of cellCache.values()) {
+      if (entry.pins.some((p) => p.id === id)) entry.pins = entry.pins.filter((p) => p.id !== id)
+    }
+    cacheVersion.value++
+  }
+
   return {
+    // local updates (votes / reports)
+    cacheVersion,
+    patchPin,
+    forgetPin,
     // place index
     placeIndex,
     placeIndexLoading,

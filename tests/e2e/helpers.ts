@@ -9,7 +9,7 @@ export const AREA_NAME = 'Tauranga & surrounds'
 export const TOWN_KEY = 'papamoa-e8-nz'
 export const TOWN_NAME = 'Pāpāmoa'
 /** First seed spot, "The Haunted Villa" (ACTIVE). */
-export const PIN_ID = 'seedUser01_HALLOWEEN_2026'
+export const PIN_ID = 'seedUser00000000000001_HALLOWEEN_2026'
 export const PIN_TITLE = 'The Haunted Villa'
 /** Near the "Witches of Mauao" / "Ghosts of the Mount" seed spots. */
 export const MOUNT_MAUNGANUI = { latitude: -37.6395, longitude: 176.1815 }

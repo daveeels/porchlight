@@ -556,6 +556,10 @@ export function useMap(host: Ref<HTMLElement | null>, options: UseMapOptions = {
   // Verified only: client-side filter of what's already loaded.
   watch(() => pins.verifiedOnly, pushPins)
 
+  // A vote/report patched or dropped a cached pin: redraw from the cell cache
+  // (cache hits, no queries) so a pin hidden by votes leaves the map now.
+  watch(() => pins.cacheVersion, () => scheduleRefresh(0))
+
   return {
     status: readonly(status),
     tooWide: readonly(tooWide),

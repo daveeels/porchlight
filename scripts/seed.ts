@@ -140,7 +140,10 @@ function buildPins(): Map<string, SeedPin> {
   const pins = new Map<string, SeedPin>()
 
   SPOTS.forEach((spot, i) => {
-    const ownerId = `${OWNER_PREFIX}${String(i + 1).padStart(2, '0')}`
+    // 22 characters, so the id passes the server's pinId check (20–40
+    // alphanumerics before the event, like a real uid) and seeded pins can be
+    // voted on and reported: seedUser00000000000001_HALLOWEEN_2026.
+    const ownerId = `${OWNER_PREFIX}${String(i + 1).padStart(14, '0')}`
     const pinId = `${ownerId}_${EVENT_ID}`
     const lat = Number((spot.lat + (rand() - 0.5) * 2 * JITTER_DEG).toFixed(6))
     const lng = Number((spot.lng + (rand() - 0.5) * 2 * JITTER_DEG).toFixed(6))

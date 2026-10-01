@@ -5,7 +5,9 @@ import App from './App.vue'
 import { router } from './router'
 import { env } from '@/config/env'
 import { authDomainRedirect } from '@/lib/hostRedirect'
+import { captureInstallPrompt } from '@/lib/installPrompt'
 import { defaultSeasonByDate } from '@/lib/seasonDates'
+import { recoverFromStaleChunk } from '@/lib/staleChunk'
 import { useAuthStore } from '@/stores/auth'
 import { SEASON_STORAGE_KEY, useSeasonStore } from '@/stores/season'
 import { SEASONS, type Season } from '@/types/models'
@@ -26,6 +28,13 @@ function applyInitialTheme(): void {
 
 function start(): void {
   applyInitialTheme()
+  // A lazy file from before the latest deploy failed to load (Vite's event):
+  // reload once. The router's onError names the page if it was a navigation.
+  window.addEventListener('vite:preloadError', () => {
+    recoverFromStaleChunk()
+  })
+  // SPEC F10: catch beforeinstallprompt even if it fires before Explore mounts.
+  captureInstallPrompt()
   const pinia = createPinia()
   const app = createApp(App).use(IonicVue).use(pinia).use(router)
 

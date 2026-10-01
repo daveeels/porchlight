@@ -1,29 +1,19 @@
 <script setup lang="ts">
 // SPEC F3. Bottom sheet driven by usePinsStore().selectedPinId (set from ?pin=).
-// Voting/reporting are Phase 3: the buttons are placeholders for now.
+// Votes and reports live in VoteBar / ReportButton (F7/F8), never on your own pin.
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import {
-  IonButton,
-  IonContent,
-  IonIcon,
-  IonModal,
-  IonNote,
-  toastController,
-} from '@ionic/vue'
-import {
-  alertCircleOutline,
-  checkmarkOutline,
-  closeOutline,
-  flagOutline,
-  navigateOutline,
-  shareSocialOutline,
-} from 'ionicons/icons'
+import { IonButton, IonContent, IonIcon, IonModal, IonNote } from '@ionic/vue'
+import { alertCircleOutline, navigateOutline, shareSocialOutline } from 'ionicons/icons'
 import StateMessage from '@/components/common/StateMessage.vue'
+import { googleMapsUrl, openInMaps } from '@/lib/mapsLink'
 import { useAuthStore } from '@/stores/auth'
 import { usePinsStore } from '@/stores/pins'
 import VerifiedBadge from './VerifiedBadge.vue'
-import { hereCountLong, mapsUrl, notThereCountLong, pinShareUrl, placeLine } from './format'
+import ReportButton from './ReportButton.vue'
+import VoteBar from './VoteBar.vue'
+import { hereCountLong, notThereCountLong, pinShareUrl, placeLine } from './format'
+import { showToast } from './toast'
 
 const props = defineProps<{
   /** The page is covered by another route: hide the sheet but keep ?pin. */
@@ -47,20 +37,36 @@ const notFound = computed(
   () => pins.selectedPinNotFound || (!!pins.selectedPin && !pin.value && !pins.selectedPinLoading),
 )
 
-async function toast(message: string): Promise<void> {
-  const t = await toastController.create({ message, duration: 2500, position: 'bottom' })
-  await t.present()
+/** Plain web link for long-press / copy; a tap goes through openInMaps (native Maps app where it helps). */
+const mapsWebUrl = computed(() => (pin.value ? googleMapsUrl(pin.value.geo.latitude, pin.value.geo.longitude) : undefined))
+
+/** Clears the selection and drops ?pin from the URL. */
+function close(): void {
+  void pins.selectPin(null)
+  if (route.name === 'explore' && route.query.pin !== undefined) {
+    const { pin: _pin, ...query } = route.query
+    void router.replace({ query })
+  }
 }
 
 /** Only a dismissal by the user clears the selection (not a suspend). */
 function onDidDismiss(): void {
   if (props.suspended || route.name !== 'explore') return
   if (!pins.selectedPinId) return
-  void pins.selectPin(null)
-  if (route.query.pin !== undefined) {
-    const { pin: _pin, ...query } = route.query
-    void router.replace({ query })
-  }
+  close()
+}
+
+/** A vote/report hid the pin (or it's under review): it's gone for everyone. */
+function onGone(): void {
+  close()
+}
+
+/** openInMaps picks geo: / maps:// (with a web fallback) in in-app browsers, Apple Maps on iPhone (SPEC F4). */
+function openMaps(e: Event): void {
+  const p = pin.value
+  if (!p) return
+  e.preventDefault()
+  openInMaps(p.geo.latitude, p.geo.longitude)
 }
 
 function retry(): void {
@@ -82,19 +88,10 @@ async function share(): Promise<void> {
   }
   try {
     await navigator.clipboard.writeText(url)
-    await toast('Link copied')
+    await showToast('Link copied')
   } catch {
-    await toast(url)
+    await showToast(url)
   }
-}
-
-/** Anonymous users see write actions as prompts to sign in (CLAUDE.md UI conventions). */
-function writeAction(): void {
-  if (!auth.isSignedIn) {
-    void router.push('/sign-in')
-    return
-  }
-  void toast('Voting opens soon')
 }
 </script>
 
@@ -127,13 +124,15 @@ function writeAction(): void {
         <ion-button @click="retry">Try again</ion-button>
       </StateMessage>
 
+      <!-- Voting sits right under the title so it's on screen at the sheet's
+           first (40%) height; the photo, Maps, Share and Report follow. -->
       <article v-else-if="pin" class="flex flex-col gap-3 pb-6">
         <header>
           <h2 class="m-0 text-xl font-bold">{{ pin.title }}</h2>
           <p class="mt-1 mb-0 text-sm opacity-80">{{ placeLine(pin) }}</p>
         </header>
 
-        <div class="flex flex-wrap items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2" data-testid="pin-counts">
           <VerifiedBadge :verified="pin.verified" />
           <!-- One text run with a no-break space before the dot, so a wrap at
                phone width never starts a line with "·". -->
@@ -143,9 +142,10 @@ function writeAction(): void {
           </span>
         </div>
 
-        <p v-if="isOwn && pin.status !== 'ACTIVE'" class="m-0 text-sm" role="note">
-          This is your display. It isn't currently shown to other people.
+        <p v-if="isOwn" class="m-0 text-sm opacity-80" role="note" data-testid="own-pin-note">
+          {{ pin.status === 'ACTIVE' ? 'This is your display.' : "This is your display. It isn't currently shown to other people." }}
         </p>
+        <VoteBar v-else :pin="pin" :report="false" @gone="onGone" />
 
         <img
           :src="pin.photoUrl"
@@ -157,7 +157,7 @@ function writeAction(): void {
         <p v-if="pin.description" class="m-0 whitespace-pre-line">{{ pin.description }}</p>
 
         <div class="grid grid-cols-2 gap-2">
-          <ion-button :href="mapsUrl(pin)" target="_blank" rel="noopener" class="tap">
+          <ion-button :href="mapsWebUrl" target="_blank" rel="noopener" class="tap" @click="openMaps">
             <ion-icon slot="start" :icon="navigateOutline" aria-hidden="true" />
             Open in Maps
           </ion-button>
@@ -168,24 +168,7 @@ function writeAction(): void {
         </div>
         <ion-note class="text-xs">Location is approximate — shown about 25–50 m from the house.</ion-note>
 
-        <p v-if="isOwn" class="m-0 text-sm opacity-80">This is your display.</p>
-        <template v-else>
-          <div class="grid grid-cols-2 gap-2">
-            <ion-button color="primary" fill="solid" class="tap" @click="writeAction">
-              <ion-icon slot="start" :icon="checkmarkOutline" aria-hidden="true" />
-              It's here
-            </ion-button>
-            <ion-button color="medium" fill="outline" class="tap" @click="writeAction">
-              <ion-icon slot="start" :icon="closeOutline" aria-hidden="true" />
-              Not there
-            </ion-button>
-          </div>
-          <p v-if="!auth.isSignedIn" class="m-0 text-center text-sm opacity-80">Sign in to vote.</p>
-          <ion-button fill="clear" color="medium" size="small" class="tap self-center" @click="writeAction">
-            <ion-icon slot="start" :icon="flagOutline" aria-hidden="true" />
-            Report
-          </ion-button>
-        </template>
+        <ReportButton v-if="!isOwn" :pin="pin" @gone="onGone" />
       </article>
     </ion-content>
   </ion-modal>
