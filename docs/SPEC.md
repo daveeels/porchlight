@@ -163,12 +163,17 @@ Switching season calls `map.setStyle()` on the **existing** map. On `style.load`
 - Anonymous: the same buttons open "Sign in to vote".
 - Not shown on your own pin: vote/report buttons.
 
-**F4. Sign in (Google)**
-- One button on `/sign-in`: "Continue with Google". Use `signInWithPopup` (not redirect), called **directly in the tap handler with no `await` before it**, or the browser blocks the popup. Sign-in prompts elsewhere (vote, map, add) navigate to `/sign-in`; they don't open the popup after async work.
+**F4. Sign in (Google + email link)**
+- `/sign-in` offers **"Continue with Google"** and **"Email me a sign-in link"** (F11). Google: Use `signInWithPopup` (not redirect), called **directly in the tap handler with no `await` before it**, or the browser blocks the popup. Sign-in prompts elsewhere (vote, map, add) navigate to `/sign-in`; they don't open the popup after async work.
 - **Serve the app from the same domain as the Firebase `authDomain`.** For launch that's `<project>.firebaseapp.com`: share only those links, and on load, if `location.host` isn't `authDomain`, `location.replace` to the same path on `authDomain` (Hosting also serves `<project>.web.app`). Otherwise Safari and Chrome's third-party storage blocking can break sign-in.
 - After sign-in, go back with `router.back()` (never `push('/')`) to where the user was. Exception: when the `/submit` / `/me` auth guard sent them (`/sign-in?redirect=<path>`), `router.replace` to that path (same-site paths only), so the guarded page replaces `/sign-in` and Explore stays at the root.
 - Test in iOS Safari *and* in the installed home-screen app — popups behave differently there.
-- Email link sign-in is added in Phase 4 (see F11).
+- **In-app browsers** (Facebook, Instagram, Messenger — detected from the user agent): Google refuses to sign in inside them. The sign-in page shows, above the buttons: *"To sign in with Google, open Porchlight in your browser."*
+  - Android: an **"Open in Chrome"** button using an `intent://<host><path>#Intent;scheme=https;package=com.android.chrome;end` URL.
+  - iPhone: try `x-safari-https://<host><path>`; always also show a 2-step picture guide (**⋯ → Open in external browser**).
+  - The Google button is still shown but de-emphasised; **email sign-in works in the in-app browser** and is the suggested option there.
+  - "Open in Maps" from an in-app browser must open the real Maps app (Android `geo:` / Google Maps intent; iPhone `maps://` with a Google Maps web fallback).
+- **Facebook Login is deferred** (known risk; see §11 #9).
 
 **F5. Add my display** (signed in)
 Flow: location → photo → details → preview → submit → success.
@@ -186,7 +191,7 @@ Flow: location → photo → details → preview → submit → success.
 
 **F7. Votes and verification**
 - One vote per user per pin: `HERE` or `NOT_THERE`. A user **can change** their vote (displays go up and come down). Can't vote on your own pin.
-- **Counted votes:** a vote counts toward the numbers only if, at the time of voting, the account signed in with Google, *or* the account is ≥ 24 h old. (Google accounts are costly to mass-create; email-link accounts from Phase 4 must age first.)
+- **Counted votes:** a vote counts toward the numbers only if, at the time of voting, the account signed in with Google, *or* the account is ≥ 24 h old. (Google accounts are costly to mass-create; email-link accounts must age first.)
 - **Verified** when `hereVotes >= 3 && hereVotes >= 2 * notThereVotes`. Can be lost again if "Not there" votes grow.
 - **Dropped from results** when `notThereVotes >= T && notThereVotes > hereVotes` → status HIDDEN, `hiddenReason: 'NOT_THERE'`. T = 3, or 8 if `moderation.decision == 'APPROVED'` (same as reports), so an admin approval isn't undone by the next vote.
 - Only ACTIVE → HIDDEN is automatic. **A hidden pin comes back only through admin APPROVE** (voting is closed while hidden). The RUNBOOK lists NOT_THERE-hidden pins for review.
@@ -200,9 +205,14 @@ Flow: location → photo → details → preview → submit → success.
 
 **F9. About / legal** (required for Google sign-in consent screen too)
 - How it works, how verification works, privacy (offset, photo cleaning, auto-expiry), community guidelines (what counts as a display), terms, privacy policy, contact email for takedown requests.
+- **Support Porchlight:** "Buy a bad decision 🍻" → `config/app.donateUrl` (Ko-fi, https://ko-fi.com/dewetellis). Also in the account menu, and as a quiet line at the end of results lists: *"Porchlight is free and made by a local. Like it? Buy De Wet a bad decision 🍻"*. A null `donateUrl` hides all three. Donations happen on Ko-fi's site (stated in the privacy section).
 
-**F10. Installable**
-- Web app manifest + icons so it can be added to the home screen. A full offline service worker comes in Phase 4.
+**F10. Installable (the preferred way to use Porchlight)**
+- Web app manifest + icons (name "Porchlight", standalone display, season theme colour) so it installs to the home screen. A full offline service worker comes in Phase 4.
+- **Install prompt:** a dismissible "Add Porchlight to your home screen" card, shown once after real use (e.g. 2nd visit, or after opening 3 pins) — never on first load, never inside an in-app browser, never when already installed (`display-mode: standalone`). Dismissal remembered in `localStorage` for 14 days.
+  - Android/Chrome: one-tap install via the captured `beforeinstallprompt` event.
+  - iPhone/Safari: a 2-step guide (**Share → Add to Home Screen**).
+- No Apple developer fee is needed: iPhone users install the PWA from Safari. Android can later be published to Google Play as a Trusted Web Activity (one-time US$25) — optional.
 - If `vite-plugin-pwa` is used for the manifest, its service worker **must** have `workbox.navigateFallbackDenylist: [/^\/__\//]` from day one.
 
 ### After launch
@@ -210,19 +220,28 @@ Flow: location → photo → details → preview → submit → success.
 | When | Feature |
 |---|---|
 | Before Nov 8 | `archiveExpiredPins` running |
-| **Phase 4 — Christmas update (by Nov 15)** | Christmas theme + season switcher · **F11 Email link sign-in** · custom domain + email sender · full PWA offline · in-app admin queue · `purgeExpiredPins` |
-| Phase 5 — Money (web only) | Featured pin ($3.99/pin/event) · one-off "Supporter" extras (saved favourites, light-tour route planner, no sponsor banners) · sponsors · donation link · `mapAccess: 'PAID'` option (built, **off**) |
+| **Phase 4 — Christmas update (by Nov 15)** | Christmas theme + season switcher · **F12 Light tours** · custom domain + email sender · full PWA offline · in-app admin queue · `purgeExpiredPins` |
+| Phase 5 — Money (web only) | Featured pin ($3.99/pin/event) · one-off "Supporter" extras (saved favourites, no sponsor banners) · sponsors · `mapAccess: 'PAID'` option (built, **off**) |
 | Phase 6 — Native apps | Capacitor iOS/Android · Sign in with Apple · account deletion · store listings |
 
-**F11. Email link sign-in (Phase 4)**
-- Email field → "Check your inbox" + resend. Link lands on `/auth/complete`, which finishes sign-in and returns the user where they were.
+**F11. Email link sign-in (Phase 3 — brought forward)**
+- Email field → "Check your inbox" + resend. Hint: *"Can't see it? Check your spam or junk folder."* (until a custom sender domain exists). Link lands on `/auth/complete`, which finishes sign-in and returns the user where they were.
 - Opened on another device/browser (no saved email) → ask for the email again. Expired/used link → clear message + "send a new link".
 - Email saved in `localStorage` only between send and complete. Never in the URL.
-- Needs a custom sender domain (SPF/DKIM) or links land in spam.
+- Default Firebase sender for the beta; a custom sender domain (SPF/DKIM) in Phase 4 improves deliverability.
+- Email-link accounts' votes/reports count only after 24 h (F7).
+- Firebase console: Authentication → Sign-in method → Email/Password with **Email link (passwordless)** enabled.
+
+**F12. Light tours (Phase 4 — free)**
+- "Add to tour" on any pin; **"Make me a tour"** picks the best 6–8 verified pins within ~5 km of the user.
+- Stops ordered on the device (nearest-neighbour + 2-opt on straight-line distance), 🚗 drive / 🚶 walk toggle, numbered stops joined by straight lines on our map, estimated distance and time.
+- **"Start tour in Google Maps"**: a Maps URL with the ordered stops as waypoints (no API key). ~9 stops per link → split longer tours into parts. Apple Maps handles multi-stop poorly → stop-by-stop fallback.
+- Stops are the offset (25–50 m) locations; the photo identifies the house.
+- Later: road-following lines (e.g. OpenRouteService free tier), saved and shareable tours.
 
 ### Out of scope (don't build unless asked)
 
-Other holidays (config makes them easy later), passwords, multiple photos, comments/chat, push notifications, offline pins, translations, public user profiles, analytics dashboards, address search/geocoding.
+Other holidays (config makes them easy later), passwords, Facebook Login (deferred, §11 #9), multiple photos, comments/chat, push notifications, offline pins, translations, public user profiles, analytics dashboards, address search/geocoding.
 
 ---
 
@@ -238,6 +257,7 @@ interface AppConfig {
   defaultAreaKey: string | null;                              // 'tauranga' — the list the home screen opens on
   launchMode: 'BETA' | 'LIVE';                                // default 'BETA' until launch day
   feedbackEmail: string;                                      // where "Send feedback" goes
+  donateUrl: string | null;                                   // 'https://ko-fi.com/dewetellis'; null hides donate links
 }
 
 // config/testers — admin write, NO client read (server checks it)
@@ -624,6 +644,8 @@ Today is **Thu Oct 1, 2026**. The code is built by Claude Code agents, so phases
 - Rest of the About page, manifest + icons (if `vite-plugin-pwa` is used: `navigateFallbackDenylist: [/^\/__\//]`).
 - Turn on Firestore + Storage App Check enforcement.
 - Beta mode: `launchMode`, `config/testers` checks in all write callables, Beta badge, Send feedback, `noindex` flag, `scripts/setTesters.ts` (add/remove tester emails).
+- **F11 email link sign-in** (brought forward), **in-app browser guidance** on `/sign-in` (F4), **install prompt** (F10), donate link (F9).
+- Then a **design + usability polish pass** before beta invites: 2–3 visual directions mocked as screenshots for the owner to pick; persona walkthroughs (first-time visitor from a Facebook link, parent on a phone in the dark, older non-techy user, first-time poster); a 5-second first-visit welcome; copy review (short, friendly, Kiwi).
 - Playwright E2E suite (see Testing above) passing on both viewports.
 - Deploy the **private beta**; real-device smoke test (iPhone Safari, Android Chrome, installed home-screen app).
 - **Launch** after beta testing (§8 launch plan).
@@ -643,7 +665,8 @@ Today is **Thu Oct 1, 2026**. The code is built by Claude Code agents, so phases
 
 ### Phase 4 — Christmas update (by Nov 15)
 - OpenFreeMap `positron` style, Christmas palette/icons, `CHRISTMAS_2026` event doc, season switcher.
-- F11 email link sign-in (custom sender domain with SPF/DKIM, `/auth/complete`, 24 h counting rule now matters).
+- F12 Light tours.
+- Custom email sender domain (SPF/DKIM) for F11 links.
 - Optional custom domain (add to Auth authorized domains, and use as `authDomain`).
 - Full PWA service worker with offline fallback (keep the `/__/` denylist).
 - AdminQueuePage (UI over `moderatePin`).
@@ -713,3 +736,5 @@ Defaults are what gets built unless you change them.
 | 6 | Map access | `ACCOUNT` (free with sign-in); `PAID` built later but off |
 | 7 | Featured pin price | NZ$4.99 per pin per event, web only (Phase 5) |
 | 8 | Christmas expiry | Jan 8, 12:00 UTC (covers Jan 7 in every timezone) |
+| 9 | Facebook Login | **Deferred.** Known risk: links shared in Facebook groups open in Facebook's in-app browser, where Google sign-in fails. Mitigated for launch by email sign-in + "open in browser" guidance + the install prompt. Revisit before launch (~Oct 13). |
+| 10 | Donations | ✅ Ko-fi "Buy a bad decision" (https://ko-fi.com/dewetellis) |
