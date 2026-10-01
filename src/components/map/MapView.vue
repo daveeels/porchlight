@@ -1,9 +1,9 @@
 <script setup lang="ts">
 // Browse map (SPEC F2). Mounted lazily once by ExplorePage and kept with
-// v-show: this component never creates a second mapbox Map and never removes
+// v-show: this component never creates a second MapLibre Map and never removes
 // the one it has (golden rule 5). The parent must give it a height.
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useMapbox } from '@/composables/useMapbox'
+import { useMap } from '@/composables/useMap'
 import { useMapStore } from '@/stores/map'
 import StateMessage from '@/components/common/StateMessage.vue'
 import LocateButton from './LocateButton.vue'
@@ -16,7 +16,7 @@ const root = ref<HTMLElement | null>(null)
 const host = ref<HTMLElement | null>(null)
 const mapStore = useMapStore()
 
-const { status, tooWide, loadFailed, locating, locateError, activate, resize, locate, zoomIn, retry } = useMapbox(
+const { status, tooWide, loadFailed, locating, locateError, activate, resize, locate, zoomIn, retry } = useMap(
   host,
   { onSelectPin: (id) => emit('select-pin', id) },
 )
@@ -63,10 +63,7 @@ onBeforeUnmount(() => {
   <div ref="root" class="map-view relative h-full min-h-64 w-full overflow-hidden">
     <div ref="host" class="absolute inset-0" />
 
-    <div v-if="status === 'no-token'" class="map-overlay absolute inset-0 flex items-center justify-center">
-      <StateMessage title="Map needs a Mapbox token" message="Set VITE_MAPBOX_TOKEN in .env.local." />
-    </div>
-    <div v-else-if="status === 'error'" class="map-overlay absolute inset-0 flex items-center justify-center">
+    <div v-if="status === 'error'" class="map-overlay absolute inset-0 flex items-center justify-center">
       <StateMessage title="Map temporarily unavailable" message="Try the list view for now." error />
     </div>
     <div
@@ -86,7 +83,7 @@ onBeforeUnmount(() => {
         @zoom-in="zoomIn"
         @retry="retry"
       />
-      <!-- Above the attribution/logo row so Mapbox attribution stays visible. -->
+      <!-- Above the attribution row so the OSM / OpenMapTiles credit stays visible. -->
       <LocateButton class="absolute right-3 bottom-10 z-10" :locating="locating" @locate="locate" />
     </template>
   </div>
@@ -97,8 +94,8 @@ onBeforeUnmount(() => {
   background: var(--ion-background-color);
   z-index: 5;
 }
-.map-view :deep(.mapboxgl-ctrl-bottom-right),
-.map-view :deep(.mapboxgl-ctrl-bottom-left) {
+.map-view :deep(.maplibregl-ctrl-bottom-right),
+.map-view :deep(.maplibregl-ctrl-bottom-left) {
   z-index: 2;
 }
 </style>

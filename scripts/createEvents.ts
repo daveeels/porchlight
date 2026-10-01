@@ -97,11 +97,25 @@ export function eventDoc(season: Season, year: number, isActive = true): AdminDo
   }
 }
 
-/** config/app defaults (SPEC §5): members-only map, opens on Tauranga. */
-export const DEFAULT_APP_CONFIG: AppConfig = {
+/** config/app beta fields (SPEC §5 "Beta mode"). Spelled out here so this compiles whether or not AppConfig has them yet. */
+export interface BetaAppConfig {
+  launchMode: 'BETA' | 'LIVE'
+  feedbackEmail: string
+  donateUrl: string | null
+}
+
+/**
+ * config/app defaults (SPEC §5): members-only map, opens on Tauranga, private
+ * beta. Merged as missing fields only, so an existing launchMode ('LIVE' on
+ * launch day) or feedbackEmail is never overwritten.
+ */
+export const DEFAULT_APP_CONFIG: AppConfig & BetaAppConfig = {
   mapAccess: 'ACCOUNT',
   launchCenter: { lat: LAUNCH_CENTER.lat, lng: LAUNCH_CENTER.lng, zoom: LAUNCH_CENTER.zoom },
   defaultAreaKey: AREAS[0]?.key ?? null,
+  launchMode: 'BETA',
+  feedbackEmail: 'dewetellis@gmail.com',
+  donateUrl: 'https://ko-fi.com/dewetellis',
 }
 
 /** Readable form of a doc for printing (Timestamps as ISO strings). */
@@ -236,7 +250,7 @@ async function main(): Promise<void> {
 
   const configRef = db?.collection('config').doc('app')
   const current = configRef ? ((await configRef.get()).data() ?? {}) : null
-  const missing: Partial<AppConfig> = {}
+  const missing: Partial<AppConfig & BetaAppConfig> = {}
   for (const [k, v] of Object.entries(DEFAULT_APP_CONFIG)) {
     if (current === null || !(k in current)) (missing as Record<string, unknown>)[k] = v
   }

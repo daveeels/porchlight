@@ -1,11 +1,28 @@
 rules_version = '2';
 
-// Phase 0: everything closed. Phase 2 opens uploads/{uid}/{uploadId} for the
-// owner and public reads of photos/ (SPEC §5 "Storage layout").
+// SPEC §5 "Storage layout".
+// - uploads/{uid}/{uploadId}: the owner may CREATE once (JPEG, < 10 MB). No
+//   client reads, overwrites or deletes; createPin/updatePin read it with the
+//   Admin SDK and delete it. A bucket lifecycle rule also clears uploads/ daily.
+// - photos/**: written only by the server (sharp output). Anyone may GET a
+//   photo by its path, but nobody may LIST: listing would reveal every pinId
+//   (and so the owner's uid) and the photos of HIDDEN pins. The paths hold a
+//   random uploadId, so they can't be guessed without listing.
+// - Everything else is closed.
 service firebase.storage {
   match /b/{bucket}/o {
-    match /{allPaths=**} {
-      allow read, write: if false;
+    match /uploads/{uid}/{uploadId} {
+      // `resource == null`: never overwrite an existing upload.
+      allow create: if request.auth != null
+        && resource == null
+        && request.auth.uid == uid
+        && uploadId.matches('^[A-Za-z0-9_-]{10,40}$')
+        && request.resource.contentType == 'image/jpeg'
+        && request.resource.size < 10 * 1024 * 1024;
+    }
+
+    match /photos/{allPaths=**} {
+      allow get: if true;
     }
   }
 }

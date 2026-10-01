@@ -118,10 +118,23 @@ export function nearestPlace(lat: number, lng: number): PlaceRecord {
   return best as PlaceRecord
 }
 
-/** The `place` field for a pin at this (offset) point. */
-export function lookupPlace(lat: number, lng: number): PinPlace {
-  const area = areaFor(lat, lng)
+/**
+ * A pin must be within this distance of a known place (SPEC §5 "Place data").
+ * places.json holds only New Zealand, so this keeps pins in the covered country
+ * and stops a pin in Sydney or mid-ocean being filed under a NZ town.
+ */
+export const MAX_PLACE_KM = 15
+
+/** The nearest place if the point is within MAX_PLACE_KM of it, else null (also for invalid points). */
+export function coveredPlace(lat: number, lng: number): PlaceRecord | null {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 85 || Math.abs(lng) > 180) return null
   const town = nearestPlace(lat, lng)
+  return haversineKm({ lat, lng }, town) <= MAX_PLACE_KM ? town : null
+}
+
+/** The `place` field for a pin at this (offset) point. */
+export function lookupPlace(lat: number, lng: number, town: PlaceRecord = nearestPlace(lat, lng)): PinPlace {
+  const area = areaFor(lat, lng)
   return {
     areaKey: area?.key ?? null,
     area: area?.name ?? null,

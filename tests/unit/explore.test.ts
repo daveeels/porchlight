@@ -198,6 +198,19 @@ describe('PlaceSearch', () => {
     expect(wrapper.emitted('select')?.[0]?.[0]).toMatchObject({ kind: 'town', key: 'papamoa-beach' })
   })
 
+  it('hides the popular row when showPopular is false but still lists popular places on focus', async () => {
+    mockPlaceIndex.mockResolvedValueOnce(INDEX)
+    await usePinsStore().loadPlaceIndex()
+    const wrapper = mount(PlaceSearch, { props: { showPopular: false }, global: { plugins: [IonicVue, pinia] } })
+    await flushPromises()
+    expect(wrapper.find('nav[aria-label="Popular places"]').exists()).toBe(false)
+
+    await wrapper.find('ion-searchbar').trigger('ionFocus')
+    await flushPromises()
+    expect(allText(wrapper)).toContain('Popular places')
+    expect(wrapper.findAll('ion-item')).toHaveLength(3)
+  })
+
   it('shows an inline error with Try again when the place index fails', async () => {
     mockPlaceIndex.mockRejectedValueOnce(new Error('offline'))
     const store = usePinsStore()

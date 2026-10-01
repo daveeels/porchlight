@@ -2,7 +2,7 @@
 // Status chips across the top of the map (SPEC F2 / §7 empty states).
 // One chip at a time, most important first. Tappable chips are >= 44 px.
 import { computed } from 'vue'
-import type { LocateError } from '@/composables/useMapbox'
+import type { LocateError } from '@/composables/useMap'
 
 const props = defineProps<{
   zoomHint: boolean

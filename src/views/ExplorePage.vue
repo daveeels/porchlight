@@ -23,6 +23,7 @@ import {
 } from '@ionic/vue'
 import { alertCircleOutline, closeOutline, locateOutline } from 'ionicons/icons'
 import AccountButton from '@/components/explore/AccountButton.vue'
+import AddDisplayFab from '@/components/explore/AddDisplayFab.vue'
 import MapSegment from '@/components/explore/MapSegment.vue'
 import OffSeasonLanding from '@/components/explore/OffSeasonLanding.vue'
 import PlaceSearch from '@/components/explore/PlaceSearch.vue'
@@ -195,6 +196,8 @@ const chipsAreaKey = computed<string | null>(() => {
   return null
 })
 const chipsTownKey = computed(() => (pins.selection?.kind === 'town' ? pins.selection.key : null))
+/** TownChips renders: the "Popular places" row is hidden then (the search dropdown still lists them). */
+const showsTownChips = computed(() => !!chipsAreaKey.value && pins.townsInArea(chipsAreaKey.value).length > 0)
 
 const nearMeMessage = computed(() => {
   switch (nearMeError.value) {
@@ -249,8 +252,9 @@ const nearMeMessage = computed(() => {
       <OffSeasonLanding v-else-if="season.offSeason" />
 
       <template v-else>
-        <div v-show="segment === 'list'" class="mx-auto max-w-2xl pb-8">
-          <PlaceSearch @select="onSearchSelect" />
+        <!-- pb-24 keeps the last result clear of the Add my display button. -->
+        <div v-show="segment === 'list'" class="mx-auto max-w-2xl pb-24">
+          <PlaceSearch :show-popular="!showsTownChips" @select="onSearchSelect" />
 
           <div class="flex items-center justify-between gap-2 px-3 pb-2">
             <ion-button fill="outline" class="tap m-0" :disabled="locating" @click="nearMe">
@@ -285,6 +289,9 @@ const nearMeMessage = computed(() => {
             message="Search for a town or suburb, or tap Near me."
           />
         </div>
+
+        <!-- List only: on the map it would sit on top of the locate button. -->
+        <AddDisplayFab v-if="segment === 'list'" />
 
         <div v-show="segment === 'map'" slot="fixed" class="map-slot">
           <MapSegment :shown="segment === 'map' && pageVisible" @select-pin="openPin" />

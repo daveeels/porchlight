@@ -15,7 +15,15 @@ export interface AppConfig {
   mapAccess: MapAccess
   launchCenter: { lat: number; lng: number; zoom: number }
   defaultAreaKey: string | null
+  /** 'BETA' until launch day: only testers can write (server-enforced). */
+  launchMode: LaunchMode
+  /** Where the account menu's "Send feedback" mailto goes. */
+  feedbackEmail: string
+  /** Donation page ("Buy a bad decision"); null hides every donate link. */
+  donateUrl: string | null
 }
+
+export type LaunchMode = 'BETA' | 'LIVE'
 
 /** events/{eventId} */
 export interface HolidayEvent {

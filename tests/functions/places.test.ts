@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { haversineKm } from '../../functions/src/lib/geo'
-import { areaFor, lookupPlace, nearestPlace, type PlaceRecord } from '../../functions/src/lib/places'
+import { areaFor, coveredPlace, lookupPlace, MAX_PLACE_KM, nearestPlace, type PlaceRecord } from '../../functions/src/lib/places'
 
 const places = JSON.parse(
   readFileSync(new URL('../../functions/data/places.json', import.meta.url), 'utf8'),
@@ -84,5 +84,22 @@ describe('nearestPlace', () => {
 
   it('still answers far from New Zealand', () => {
     expect(nearestPlace(51.5, -0.1).cc).toBe('NZ')
+  })
+})
+
+describe('coveredPlace', () => {
+  it('accepts points in New Zealand, including the Chatham Islands', () => {
+    expect(coveredPlace(-37.7, 176.29)?.cc).toBe('NZ') // Pāpāmoa
+    expect(coveredPlace(-36.85, 174.76)?.cc).toBe('NZ') // Auckland
+    expect(coveredPlace(-43.95, -176.56)?.region).toBe('Chatham Islands')
+  })
+
+  it(`rejects points more than ${MAX_PLACE_KM} km from any place, and invalid points`, () => {
+    expect(coveredPlace(-33.87, 151.21)).toBeNull() // Sydney
+    expect(coveredPlace(-40, 170)).toBeNull() // Tasman Sea
+    expect(coveredPlace(51.5, -0.1)).toBeNull() // London
+    expect(coveredPlace(-90, 0)).toBeNull()
+    expect(coveredPlace(90, 1e12)).toBeNull()
+    expect(coveredPlace(Number.NaN, 176)).toBeNull()
   })
 })

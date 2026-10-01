@@ -5,6 +5,7 @@ import { computed } from 'vue'
 import { IonButton, IonList, IonSpinner } from '@ionic/vue'
 import { alertCircleOutline, locateOutline, shieldCheckmarkOutline } from 'ionicons/icons'
 import StateMessage from '@/components/common/StateMessage.vue'
+import { useAppConfigStore } from '@/stores/appConfig'
 import { useSeasonStore } from '@/stores/season'
 import { usePinsStore } from '@/stores/pins'
 import { SEASON_THEMES } from '@/config/seasons'
@@ -23,6 +24,7 @@ const emit = defineEmits<{
 
 const pins = usePinsStore()
 const season = useSeasonStore()
+const appConfig = useAppConfigStore()
 
 const isNearMe = computed(() => pins.selection?.kind === 'nearMe')
 const icon = computed(() => (season.season ? SEASON_THEMES[season.season].icon : undefined))
@@ -102,6 +104,12 @@ function distance(id: string): number | null {
           {{ pins.loading ? 'Loading…' : 'Load more' }}
         </ion-button>
       </div>
+      <p v-if="appConfig.config.donateUrl && !pins.canLoadMore" class="donate px-4 pb-6 pt-2 text-center text-sm">
+        Porchlight is free and made by a local. Like it?
+        <a :href="appConfig.config.donateUrl" target="_blank" rel="noopener" class="donate-link" data-testid="donate-footer"
+          >Buy De Wet a bad decision 🍻</a
+        >
+      </p>
     </template>
   </section>
 </template>
@@ -109,5 +117,15 @@ function distance(id: string): number | null {
 <style scoped>
 .tap {
   min-height: 44px;
+}
+.donate {
+  opacity: 0.75;
+}
+.donate-link {
+  display: inline-block;
+  min-height: 44px;
+  line-height: 44px;
+  color: var(--ion-color-primary);
+  font-weight: 600;
 }
 </style>

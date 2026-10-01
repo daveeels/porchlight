@@ -14,11 +14,13 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:rules": "firebase emulators:exec --only firestore,storage --project demo-porchlight \"vitest run --config vitest.rules.config.ts\"",
+    "test:functions": "firebase emulators:exec --only auth,firestore,storage --project demo-porchlight \"vitest run --config tests/functions/vitest.emulator.config.ts\"",
     "test:e2e": "node scripts/e2e.mjs",
     "emulators": "firebase emulators:start --project demo-porchlight --import=.emulator-data --export-on-exit=.emulator-data",
     "seed": "tsx scripts/seed.ts",
     "places:build": "tsx scripts/buildPlaces.ts",
-    "events:create": "tsx scripts/createEvents.ts"
+    "events:create": "tsx scripts/createEvents.ts",
+    "testers": "tsx scripts/setTesters.ts"
   },
   "dependencies": {
     "@ionic/vue": "^9.0.6",
@@ -26,7 +28,7 @@
     "firebase": "^12.19.0",
     "geofire-common": "^6.0.0",
     "ionicons": "^8.1.0",
-    "mapbox-gl": "^3.32.0",
+    "maplibre-gl": "^6.11.2",
     "pinia": "^4.0.3",
     "vue": "^3.5.43",
     "vue-router": "^5.3.1"

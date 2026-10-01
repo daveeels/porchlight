@@ -1,5 +1,6 @@
 // Seeds the Firestore EMULATOR with demo data (SPEC §8 Phase 1):
-// config/app, events/HALLOWEEN_2026, ~50 pins around Tauranga (+ a few in
+// config/app (launchMode 'BETA'), config/testers (tester@example.com,
+// owner@example.com), events/HALLOWEEN_2026, ~50 pins around Tauranga (+ a few in
 // Rotorua, outside every area, and a few HIDDEN/REMOVED ones) and
 // placeIndex/HALLOWEEN_2026. Idempotent: every doc is overwritten, and seed
 // pins no longer in the list below are deleted. Deterministic (seeded PRNG).
@@ -22,6 +23,8 @@ const YEAR = 2026
 const EVENT_ID: EventId = `${SEASON}_${YEAR}`
 const OWNER_PREFIX = 'seedUser'
 const PHOTO_COUNT = 6
+/** config/testers for the emulator (SPEC §5 beta mode), lowercased. */
+const SEED_TESTERS = ['tester@example.com', 'owner@example.com']
 const DRY_RUN = process.argv.includes('--dry-run')
 
 // --- Safety: emulator only --------------------------------------------------
@@ -280,13 +283,16 @@ async function main(): Promise<void> {
   for (const doc of stale) await db.recursiveDelete(doc.ref)
 
   const batch = db.batch()
+  // DEFAULT_APP_CONFIG includes launchMode 'BETA' + feedbackEmail; the testers
+  // below are the emulator accounts allowed to write during the beta.
   batch.set(db.collection('config').doc('app'), DEFAULT_APP_CONFIG)
+  batch.set(db.collection('config').doc('testers'), { emails: SEED_TESTERS })
   batch.set(db.collection('events').doc(EVENT_ID), event)
   for (const [id, pin] of pins) batch.set(db.collection('pins').doc(id), pin)
   batch.set(db.collection('placeIndex').doc(EVENT_ID), placeIndex)
   await batch.commit()
 
-  console.log(`\nWrote config/app, events/${EVENT_ID}, ${pins.size} pins, placeIndex/${EVENT_ID}` +
+  console.log(`\nWrote config/app, config/testers, events/${EVENT_ID}, ${pins.size} pins, placeIndex/${EVENT_ID}` +
     (stale.length ? `; deleted ${stale.length} stale seed pins` : '') + '.\n')
 }
 

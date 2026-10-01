@@ -44,7 +44,7 @@ const MapLoading = defineComponent({
 })
 
 // A failed async component keeps its rejected request, so "Try again" builds a
-// fresh definition and re-keys it. No mapbox Map exists until MapView loads,
+// fresh definition and re-keys it. No MapLibre Map exists until MapView loads,
 // so this never creates a second map (golden rule 5).
 function makeMapView() {
   return defineAsyncComponent({

@@ -1,11 +1,13 @@
 <script setup lang="ts">
 // Header account control: "Sign in" (→ /sign-in), or the user's avatar with a
-// sign-out action sheet.
+// account action sheet (My display, Send feedback, About & privacy, Sign out).
 import { computed, ref, watch } from 'vue'
-import { IonAvatar, IonButton, actionSheetController, toastController } from '@ionic/vue'
+import { IonAvatar, IonButton, actionSheetController } from '@ionic/vue'
+import { useAccountMenu } from '@/components/common/accountMenu'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
+const menu = useAccountMenu()
 const photoFailed = ref(false)
 
 const initial = computed(() => {
@@ -24,19 +26,7 @@ watch(
 async function openMenu(): Promise<void> {
   const sheet = await actionSheetController.create({
     header: auth.user?.displayName || auth.user?.email || 'Your account',
-    buttons: [
-      {
-        text: 'Sign out',
-        role: 'destructive',
-        handler: () => {
-          auth.signOut().catch(async () => {
-            const t = await toastController.create({ message: "Couldn't sign out. Try again.", duration: 2500 })
-            await t.present()
-          })
-        },
-      },
-      { text: 'Cancel', role: 'cancel' },
-    ],
+    buttons: menu.actionSheetButtons(),
   })
   await sheet.present()
 }
@@ -44,7 +34,8 @@ async function openMenu(): Promise<void> {
 
 <template>
   <template v-if="auth.ready">
-    <ion-button v-if="!auth.isSignedIn" router-link="/sign-in" fill="solid" color="primary" class="tap">
+    <!-- Clear, not solid: a solid primary block is too heavy in the iOS header. -->
+    <ion-button v-if="!auth.isSignedIn" router-link="/sign-in" fill="clear" color="primary" class="tap sign-in">
       Sign in
     </ion-button>
     <ion-button v-else fill="clear" class="tap" aria-label="Account" @click="openMenu">
@@ -60,6 +51,9 @@ async function openMenu(): Promise<void> {
 .tap {
   min-height: 44px;
   min-width: 44px;
+}
+.sign-in {
+  font-weight: 600;
 }
 .avatar {
   width: 32px;

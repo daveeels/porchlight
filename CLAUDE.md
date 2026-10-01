@@ -16,7 +16,7 @@ Deadline mindset: build the smallest thing that meets each phase's "done when". 
 - **Ionic Vue 9** for UI components. No PrimeVue, no other component library.
 - **Tailwind CSS v4, utilities only.** Never enable Preflight (it breaks Ionic). Ionic's CSS is imported only in `src/theme/tailwind.css`, inside `layer(ionic)`, below `utilities` (exact code in SPEC §2).
 - Pinia: `useAppConfigStore`, `useSeasonStore`, `useAuthStore`, `usePinsStore`, `useMapStore` (`useAdminStore` in Phase 4).
-- **Mapbox GL JS v3**, all map code inside the `useMapbox` composable. No Leaflet, no Google Maps, no public OSM tiles.
+- **MapLibre GL JS** with **OpenFreeMap** public vector tiles (free, no key, no limits, no SLA), all map code inside the `useMap` composable. Style URLs live in config (`src/config/env.ts`, overridable via `VITE_MAP_STYLE_*`); text layers use `text-font: ['Noto Sans Regular']`. Escape hatch: self-host OpenFreeMap/Protomaps or a paid provider — only the style URLs change. No Leaflet, no Google Maps, no `tile.openstreetmap.org`.
 - Firebase: Auth (**Google** at launch; email link Phase 4; Apple Phase 6), Firestore, Storage, Cloud Functions 2nd gen (TypeScript, Node 22), Hosting, App Check. Blaze plan. **Region `us-central1` for everything.**
 - Geohash queries with `geofire-common`. Place lookup from bundled GeoNames towns (`functions/data/places.json`) plus hand-defined areas (`functions/data/areas.json`), never a geocoding API.
 - Tests: Vitest (unit), `@firebase/rules-unit-testing` (rules), Functions tests against the emulator.
@@ -27,7 +27,7 @@ Deadline mindset: build the smallest thing that meets each phase's "done when". 
 2. **Never trust client input.** Validate every callable input again on the server (auth, banned, rate limit, event window, ID formats, lengths).
 3. **Never store or log exact coordinates.** The 25–50 m offset (random bearing, `cos(lat)` correction) happens once, in `createPin`. Geohash and town come from the offset point. Location isn't editable.
 4. **Photos are cleaned on the server** with `sharp` in `createPin`/`updatePin`. The client re-encode only saves bandwidth.
-5. **One browse map per session.** Created the first time the Map segment opens, then kept with `v-show` — never `v-if`, never destroyed. Switch seasons with `map.setStyle()` and re-add images, sources and layers on `style.load`. `ExplorePage` (`/`) stays at the root of the Ionic stack: area/town/pin selection only changes its query (`?area=`, `?town=`, `?pin=`), `/a/`, `/t/` and `/p/` are redirect routes, and returning from sign-in uses `router.back()`. The only other map allowed is the add-display location picker, created while that step is open.
+5. **One browse map per session.** One MapLibre `Map`, created the first time the Map segment opens, then kept with `v-show` — never `v-if`, never destroyed. Switch seasons with `map.setStyle()` and re-add images, sources and layers on `style.load`. Keep the OSM / OpenMapTiles attribution visible. `ExplorePage` (`/`) stays at the root of the Ionic stack: area/town/pin selection only changes its query (`?area=`, `?town=`, `?pin=`), `/a/`, `/t/` and `/p/` are redirect routes, and returning from sign-in uses `router.back()` (or `router.replace` to the guard's `?redirect=`). The only other map allowed is the add-display location picker, created while that step is open.
 6. **The map is for members only**, and obeys `config/app.mapAccess` (`'OFF'` = list-only for everyone). This is cost control, not security.
 7. **Queries are bounded.** Every pin query filters `eventId ==` and `status == 'ACTIVE'`. Area/town lists: `orderBy('rankScore','desc').limit(20)` with cursors. Map/near-me: fixed geohash cells, zoom ≥ 11, debounced 400 ms, cached as `${eventId}:${cell}`, `limit(200)` per cell. Place search filters the single `placeIndex` doc on the client (macron-insensitive) — never query per keystroke. No `onSnapshot` on lists or the map.
 8. **Timestamps are Firestore `Timestamp`s**, written by the server. Never date strings.
@@ -35,7 +35,7 @@ Deadline mindset: build the smallest thing that meets each phase's "done when". 
 10. **Server-only fields** (status, counts, verified, rankScore, isFeatured, geo, geohash, place, dates, photo paths/URLs, moderation) are never accepted from the client.
 11. **Transactions read everything first, then write.** Never run `sharp`, `getAuth()` or other slow work inside a transaction (they retry). Order: validate → Auth lookup / process photo → transaction → best-effort side writes (e.g. `placeIndex`) → clean up on failure.
 12. **Admins moderate only through `moderatePin`** (script now, admin UI in Phase 4), never by hand-editing documents.
-13. **Never put secrets in client code.** Client env vars are `VITE_*` and public by design (Firebase config, Mapbox public token, reCAPTCHA site key). Stripe secrets go in Secret Manager via `defineSecret`.
+13. **Never put secrets in client code.** Client env vars are `VITE_*` and public by design (Firebase config, map style URLs, reCAPTCHA site key). Stripe secrets go in Secret Manager via `defineSecret`.
 14. **No email or display name in Firestore.** Pins never show who posted them.
 
 ## Code layout
@@ -47,7 +47,7 @@ src/
   lib/         pure functions, fully unit-tested (seasonDates, geo cells, image)
   services/    the ONLY place that imports the Firebase SDK (firebase, auth, pins, places, votes, storage)
   stores/      Pinia stores
-  composables/ useMapbox, useGeolocation, usePhotoPicker
+  composables/ useMap, useGeolocation, usePhotoPicker
   components/  explore/, map/, pin/, season/, common/
   views/       one file per route (SPEC §7)
   theme/       variables.css (Ionic vars per [data-season]), tailwind.css
@@ -99,6 +99,7 @@ Emulators use the offline `demo-porchlight` project, so no real Firebase project
 
 - Don't add a library that overlaps the stack (UI kit, map library, state manager, date library) without asking.
 - Don't use `tile.openstreetmap.org`, Google Maps, or any geocoding API for storing places.
+- Don't add a map access token or a Mapbox dependency — the map is MapLibre + OpenFreeMap (no key). Change providers by changing the style URLs in config.
 - Don't use Firebase Dynamic Links or set `dynamicLinkDomain` (shut down Aug 2025).
 - Don't add a Firestore TTL policy on pins (it orphans photos and subcollections — `purgeExpiredPins` does deletion).
 - Don't let a service worker handle `/__/*` routes (breaks Firebase auth) — set `navigateFallbackDenylist: [/^\/__\//]` whenever `vite-plugin-pwa` is on.

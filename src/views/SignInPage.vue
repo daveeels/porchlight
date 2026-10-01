@@ -1,8 +1,9 @@
 <script setup lang="ts">
 // SPEC F4. signInWithPopup must start synchronously in the tap handler or the
-// browser blocks the popup. Afterwards go back to where the user was.
+// browser blocks the popup. Afterwards go to ?redirect= (set by the auth guard
+// for /submit and /me) if present, else back to where the user was.
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
   IonBackButton,
   IonButton,
@@ -17,9 +18,11 @@ import {
   useIonRouter,
 } from '@ionic/vue'
 import { logoGoogle } from 'ionicons/icons'
+import { safeRedirect } from '@/lib/redirect'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
+const route = useRoute()
 const router = useRouter()
 const ionRouter = useIonRouter()
 const busy = ref(false)
@@ -43,9 +46,15 @@ function messageFor(e: unknown): string | null {
   }
 }
 
-/** Back to where the user came from; to Explore if they landed here directly. */
+/**
+ * To the guarded page that sent the user here (replacing /sign-in, so Explore
+ * stays at the root of the stack); otherwise back to where they came from, or
+ * to Explore if they landed here directly.
+ */
 function goBack(): void {
-  if (ionRouter.canGoBack()) router.back()
+  const target = safeRedirect(route.query.redirect)
+  if (target) void router.replace(target)
+  else if (ionRouter.canGoBack()) router.back()
   else void router.replace('/')
 }
 

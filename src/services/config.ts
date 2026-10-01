@@ -10,6 +10,15 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
   mapAccess: 'ACCOUNT',
   launchCenter: { lat: LAUNCH_CENTER.lat, lng: LAUNCH_CENTER.lng, zoom: LAUNCH_CENTER.zoom },
   defaultAreaKey: 'tauranga',
+  launchMode: 'BETA',
+  feedbackEmail: 'dewetellis@gmail.com',
+  donateUrl: 'https://ko-fi.com/dewetellis',
+}
+
+/** Only https links are shown; anything else falls back to the default. */
+function safeDonateUrl(v: unknown): string | null {
+  if (v === null) return null
+  return typeof v === 'string' && /^https:\/\//.test(v) ? v : DEFAULT_APP_CONFIG.donateUrl
 }
 
 /** config/app merged over the defaults (used as-is if the doc is missing). */
@@ -22,6 +31,9 @@ export async function fetchAppConfig(): Promise<AppConfig> {
     launchCenter: data.launchCenter ?? DEFAULT_APP_CONFIG.launchCenter,
     defaultAreaKey:
       data.defaultAreaKey === undefined ? DEFAULT_APP_CONFIG.defaultAreaKey : data.defaultAreaKey,
+    launchMode: data.launchMode === 'LIVE' ? 'LIVE' : 'BETA',
+    feedbackEmail: data.feedbackEmail || DEFAULT_APP_CONFIG.feedbackEmail,
+    donateUrl: data.donateUrl === undefined ? DEFAULT_APP_CONFIG.donateUrl : safeDonateUrl(data.donateUrl),
   }
 }
 

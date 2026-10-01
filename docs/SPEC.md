@@ -43,9 +43,9 @@ People search for an area or suburb (or tap "Near me") and see decorated houses 
 | UI components | **Ionic Vue 9** | Native-feel navigation, bottom sheets (`IonModal` breakpoints), safe areas. **No PrimeVue.** |
 | Styling | Tailwind CSS v4 (utilities only) | **No Preflight** (breaks Ionic). Ionic CSS goes in a cascade layer *below* utilities (see below). Utilities can't reach inside Ionic's shadow DOM — use `--ion-*` variables or `::part`. |
 | State | Pinia | `useAppConfigStore`, `useSeasonStore`, `useAuthStore`, `usePinsStore`, `useMapStore` (+ `useAdminStore` later) |
-| Map | **Mapbox GL JS v3** | Mapbox Studio styles: `spooky-dark` (Halloween), `festive-snow` (Christmas, Phase 4). Built-in GeoJSON clustering. **No Leaflet.** MapLibre GL JS + self-hosted tiles is the planned escape hatch if map costs grow — keep all map code inside `useMapbox`. |
+| Map | **MapLibre GL JS** + **OpenFreeMap** public vector tiles | Free, no API key, no usage limits — but no SLA. Styles: OpenFreeMap `dark` (Halloween), `positron` (Christmas, Phase 4); style URLs live in config (`VITE_MAP_STYLE_HALLOWEEN` / `VITE_MAP_STYLE_CHRISTMAS`, defaults in `src/config/env.ts`). Text layers must use `text-font: ['Noto Sans Regular']` (the only fontstack OpenFreeMap's glyph server has). Built-in GeoJSON clustering. Keep the OSM / OpenMapTiles attribution visible. **No Leaflet, never `tile.openstreetmap.org`.** Escape hatch if OpenFreeMap is down or slow: self-host OpenFreeMap or Protomaps, or switch to a paid MapLibre-compatible provider — only the style URLs change. Keep all map code inside `useMap`. |
 | Geo queries | Geohash via `geofire-common` | Firestore Standard edition |
-| Place lookup | GeoNames dataset + hand-defined launch areas, bundled in Functions | Free, storable. No geocoding API (Mapbox/Google terms don't allow storing results). |
+| Place lookup | GeoNames dataset + hand-defined launch areas, bundled in Functions | Free, storable. No geocoding API (commercial geocoders' terms don't allow storing results). |
 | Auth | Firebase Auth — **Google** (Halloween launch), + **Email link** (Phase 4), + **Sign in with Apple** (Phase 6, required by Apple once Google is offered on iOS) | No passwords |
 | Database | Cloud Firestore | Clients read, **never write** (§6) |
 | Files | Cloud Storage for Firebase | |
@@ -115,10 +115,10 @@ The active season sets `data-season="HALLOWEEN|CHRISTMAS"` on `<html>`. Everythi
 | | Halloween ("Spooky Map") | Christmas ("Festive Lights") — Phase 4 |
 |---|---|---|
 | Palette | Orange / purple on dark | Red / green on light/snowy |
-| Map style | `spooky-dark` | `festive-snow` |
+| Map style | OpenFreeMap `dark` | OpenFreeMap `positron` |
 | Markers | pumpkin (verified), faded pumpkin (unverified) | tree (verified), faded tree (unverified) |
 
-Switching season calls `map.setStyle()` on the **existing** map. On `style.load`, re-add **images** (icons added with `addImage`), sources and layers, since `setStyle` wipes all three — or bake icons into each Studio style's sprite. Never destroy and recreate the map: each new map instance is a billable Mapbox load.
+Switching season calls `map.setStyle()` on the **existing** map. On `style.load`, re-add **images** (icons added with `addImage`), sources and layers, since `setStyle` wipes all three. Never destroy and recreate the map: each new instance refetches the style, glyphs and tiles (free on OpenFreeMap, but billable on any paid provider we might switch to).
 
 ---
 
@@ -132,7 +132,7 @@ Switching season calls `map.setStyle()` on the **existing** map. On `style.load`
   - **Town** — the suburb or town from GeoNames, e.g. "Pāpāmoa Beach", "The Lakes", "Te Puke".
 - **Search box.** On open, the app loads `placeIndex/{eventId}` (one document listing every area and town that has pins, with counts) and filters it as the user types — areas first, then towns. Nothing is queried per keystroke. Shows context under each result ("Pāpāmoa Beach · Tauranga & surrounds"). Match ignoring macrons (typing "papamoa" finds "Pāpāmoa").
 - **Home screen for the launch** opens straight on the **Tauranga & surrounds** area list (from `config/app.defaultAreaKey`), with **town chips** across the top (All · Mount Maunganui · Pāpāmoa · Te Puke · …) to narrow down.
-- **Popular places** list under the search box (top areas/towns by pin count, from the same doc).
+- **Popular places** list under the search box (top areas/towns by pin count, from the same doc). The row is hidden while town chips are showing (an area or a town in an area is selected) so the two chip rows don't stack; it shows for Near me and when nothing is selected. Focusing the empty search box always lists popular places.
 - **"Near me"** button: asks for location, then loads the precision-5 geohash cell containing the user plus its 8 neighbours (same per-cell query and cache as F2). Sorted by distance, shown all at once, capped at 100, no cursor. "Verified only" filters on `pin.verified`.
 - **Results list (area or town):** card per pin with thumbnail, title, town, ✓ Verified badge or "Unverified", and "It's here" count. Sorted by `rankScore` (verified first). 20 per page; "Load more" uses `startAfter(lastDocSnapshot)`, and results are de-duplicated by id across pages (scores can change between pages).
 - **"Verified only"** on area/town lists: because `rankScore` puts verified pins first, stop at the first result where `!pin.verified && !pin.isFeatured`, drop any featured-but-unverified pins before that point, and stop "Load more" once it's reached.
@@ -153,6 +153,7 @@ Switching season calls `map.setStyle()` on the **existing** map. On `style.load`
   - Cache key `${eventId}:${cell}`, kept 5 minutes. Only fetch cells not in the cache.
   - If a cell returns exactly 200, show "Zoom in for more".
 - Clustered. Verified pins full-color, unverified faded. "Verified only" toggle filters client-side.
+- Map attribution (OpenFreeMap © OpenMapTiles, © OpenStreetMap) stays visible; MapLibre's compact attribution button on narrow screens is fine.
 - Tapping a pin opens the detail sheet (F3).
 
 **F3. Pin detail sheet** — `IonModal`, breakpoints `[0, 0.4, 0.9]`
@@ -165,7 +166,7 @@ Switching season calls `map.setStyle()` on the **existing** map. On `style.load`
 **F4. Sign in (Google)**
 - One button on `/sign-in`: "Continue with Google". Use `signInWithPopup` (not redirect), called **directly in the tap handler with no `await` before it**, or the browser blocks the popup. Sign-in prompts elsewhere (vote, map, add) navigate to `/sign-in`; they don't open the popup after async work.
 - **Serve the app from the same domain as the Firebase `authDomain`.** For launch that's `<project>.firebaseapp.com`: share only those links, and on load, if `location.host` isn't `authDomain`, `location.replace` to the same path on `authDomain` (Hosting also serves `<project>.web.app`). Otherwise Safari and Chrome's third-party storage blocking can break sign-in.
-- After sign-in, go back with `router.back()` (never `push('/')`) to where the user was.
+- After sign-in, go back with `router.back()` (never `push('/')`) to where the user was. Exception: when the `/submit` / `/me` auth guard sent them (`/sign-in?redirect=<path>`), `router.replace` to that path (same-site paths only), so the guarded page replaces `/sign-in` and Explore stays at the root.
 - Test in iOS Safari *and* in the installed home-screen app — popups behave differently there.
 - Email link sign-in is added in Phase 4 (see F11).
 
@@ -246,12 +247,12 @@ interface TesterList {
 ```
 **Beta mode** (`launchMode: 'BETA'`):
 - Everyone can browse, exactly as when live.
-- Every write callable (`createPin`, `updatePin`, `deletePin`, `castVote`, `reportPin`) first checks the caller's verified email (from `getAuth().getUser(uid)`, before the transaction) is in `config/testers.emails`, or the caller is an admin. Otherwise `permission-denied`: "Porchlight is in private beta — posting opens soon."
+- Every write callable that adds or changes content (`createPin`, `updatePin`, `castVote`, `reportPin`) first checks the caller's verified email (from `getAuth().getUser(uid)`, before the transaction) is in `config/testers.emails`, or the caller is an admin. Otherwise `permission-denied`: "Porchlight is in private beta — posting opens soon." `deletePin` has **no** beta gate: deleting only removes data, so a tester taken off the list can still delete their display.
 - The client shows a small **Beta** badge in the header and a **Send feedback** item in the account menu. It opens a `mailto:` to `feedbackEmail` with the subject "Porchlight beta feedback" and a body pre-filled with the current URL, app version (build hash), browser user agent, screen size and signed-in state.
 - `index.html` has `<meta name="robots" content="noindex">` while in beta (a build-time flag, `VITE_NOINDEX=true`).
 - Launch day = set `launchMode: 'LIVE'`, rebuild without `VITE_NOINDEX`, and delete any obviously-test pins with `scripts/moderate.ts` (testers' real displays stay).
 
-`mapAccess` is a **cost lever, not security** (the Mapbox token is public anyway). `'OFF'` is the emergency switch if Mapbox usage spikes: the app falls back to list-only for everyone. The client reads it on start.
+`mapAccess` is a **cost lever, not security** (the map needs no key, and Firestore reads are the real cost). `'OFF'` is the emergency switch if map-driven reads spike or the tile provider is down: the app falls back to list-only for everyone. The client reads it on start.
 
 ### `events/{eventId}` — public read, admin write
 ```ts
@@ -390,10 +391,10 @@ Inside each callable's transaction: if `day != today`, reset all counters and se
 ### Storage layout
 | Path | Who writes | Who reads |
 |---|---|---|
-| `uploads/{uid}/{uploadId}` | Owner. Rule: `request.auth.uid == uid && request.resource.contentType == 'image/jpeg' && request.resource.size < 10 * 1024 * 1024` | Nobody (server only) |
-| `photos/{pinId}/{uploadId}/full.webp`, `thumb.webp` | Server only | Public |
+| `uploads/{uid}/{uploadId}` | Owner, create only. Rule: `request.auth.uid == uid && resource == null && request.resource.contentType == 'image/jpeg' && request.resource.size < 10 * 1024 * 1024` (`resource == null`: no overwriting an existing upload) | Nobody (server only) |
+| `photos/{pinId}/{uploadId}/full.webp`, `thumb.webp` | Server only | Public **get** only (`allow get`, never `list`: listing would reveal every pinId, so the owner's uid, and HIDDEN pins' photos; the random `uploadId` makes paths unguessable) |
 
-`uploads/` is also cleaned by a **bucket lifecycle rule** (delete after 1 day, prefix `uploads/`) — a GCS bucket setting (`gcloud storage buckets update --lifecycle-file=...`), not part of `storage.rules`.
+`uploads/` is also cleaned by a **bucket lifecycle rule** (delete after 1 day, prefix `uploads/`) — a GCS bucket setting, not part of `storage.rules`. It lives in `storage.lifecycle.json`; apply it with `gcloud storage buckets update gs://<bucket> --lifecycle-file=storage.lifecycle.json`.
 
 ### Place data
 **Towns (GeoNames):**
@@ -408,6 +409,8 @@ Inside each callable's transaction: if `day != today`, reset all counters and se
    "center": { "lat": -37.70, "lng": 176.20 }, "radiusKm": 30 }]
 ```
 A pin belongs to the first area whose circle contains its offset point. 30 km around that center covers Tauranga city, Mount Maunganui, Pāpāmoa, Te Puke, The Lakes/Tauriko, Welcome Bay and Ōmokoroa. More areas can be added later (e.g. Rotorua, Whakatāne) without code changes.
+
+**Coverage:** a pin's offset point must be within **15 km** of a place in `places.json` (NZ only), else `createPin` rejects it with `INVALID_INPUT` ("Porchlight only covers New Zealand for now."). This keeps a pin in Sydney or mid-ocean from being filed under a NZ town.
 
 **Tests:** points in Mount Maunganui, Pāpāmoa, Te Puke, The Lakes and Ōmokoroa all get `areaKey: 'tauranga'` and a sensible town. A point in Rotorua gets `areaKey: null`.
 
@@ -445,7 +448,7 @@ rateLimits:            no client access
 |---|---|---|---|
 | `createPin` | callable | 2 | See below |
 | `updatePin` | callable | 2 | See below |
-| `deletePin` | callable | 2 | Owner sets pin to REMOVED, `removedBy: 'OWNER'`, deletes photos. **Keeps `hiddenReason`.** Frees the slot (create cap still applies). |
+| `deletePin` | callable | 2 | Owner sets pin to REMOVED, `removedBy: 'OWNER'`, deletes photos — except when `hiddenReason == 'REPORTS'`: those photos are kept for the moderator (`moderatePin` REMOVE or `purgeExpiredPins` deletes them). **Keeps `hiddenReason`.** Frees the slot (create cap still applies). No beta gate (§5). The rest of the doc stays (hidden) until `purgeExpiredPins`. |
 | `castVote` | callable | 3 | See below |
 | `reportPin` | callable | 3 | See below |
 | `moderatePin` | callable | 3 | Admin only. Actions below. Always appends to `moderationActions`. |
@@ -458,17 +461,19 @@ rateLimits:            no client access
 **Function settings:** `createPin`/`updatePin` run `sharp`: `memory: '1GiB'`, `timeoutSeconds: 60`. All functions `minInstances: 0`, region `us-central1`. The lockfile is made on Windows, so check the deploy installs the Linux sharp binary (`@img/sharp-linux-x64`); if not, add it as an optional dependency in `functions/package.json`.
 
 **Input validation (every callable, before anything else):**
-- `lat` / `lng`: finite numbers in [-90, 90] / [-180, 180].
+- `lat` / `lng`: finite numbers in [-90, 90] / [-180, 180]; the offset point must be in coverage (§5 "Place data").
 - `uploadId`: matches `^[A-Za-z0-9_-]{10,40}$`. Storage paths are always built from `auth.uid`, never from input.
 - `eventId`: matches `^(HALLOWEEN|CHRISTMAS)_\d{4}$` and the `events` doc exists.
 - `pinId`: matches `^[A-Za-z0-9]{20,40}_(HALLOWEEN|CHRISTMAS)_\d{4}$`.
-- `title` 3–60, `description` 0–500 after trimming. Reject URLs and words on a basic profanity list.
+- `title` 3–60, `description` 0–500 after trimming. Reject control characters and invisible format characters (Unicode `Cf`: zero-width spaces, bidi overrides, soft hyphens — only the zero-width joiner is allowed, for emoji), then URLs and words on a basic profanity list (checked with format characters stripped, so `evil\u200b.com` is caught).
+- If input validation fails after auth, the caller's upload (if the `uploadId` itself is well-formed) is still deleted.
 - `consentOwnerOrPermission` must be `true` (createPin).
+- Any key the callable doesn't expect (location on `updatePin`, server-only fields) → `INVALID_INPUT`.
 
 **Transactions:** read everything first, then write. Never run `sharp`, `getAuth()` calls or other slow work inside a transaction (they retry). Counters are updated from values read in the same transaction (e.g. `pin.hereVotes + 1`); Firestore re-runs the transaction with fresh reads on conflict, so this stays correct.
 
 **`createPin(input: { eventId, uploadId, lat, lng, title, description?, consentOwnerOrPermission })`**
-1. Require auth. Validate input. Call `getAuth().getUser(uid)` (for lazy user creation).
+1. Require auth. Validate input. Call `getAuth().getUser(uid)` (for lazy user creation). Beta gate. Then run the step 5 checks **read-only** (no transaction, nothing written), so a call that would fail anyway (rate limit, existing pin, closed event, cap) never runs `sharp`. Step 3's offset and coverage check also run before the photo.
 2. **Photo, outside any transaction:** read `uploads/{uid}/{uploadId}`. `sharp(buf, { limitInputPixels: 50e6 })`; reject unless `metadata().format` is jpeg, png or webp. Re-encode (sharp drops all metadata) to `full.webp` (1600 px) and `thumb.webp` (400 px) at `photos/{pinId}/{uploadId}/`. Get download URLs from `firebase-admin/storage`. **This is the real EXIF strip.**
 3. **Offset location:** random bearing 0–360°, random distance 25–50 m, converted with the `cos(latitude)` correction for longitude. Geohash and **town lookup use the offset point**. **Never store or log the exact coordinates** (don't log the request payload).
 4. Re-create over a REMOVED pin: `recursiveDelete` its old `votes` and `reports` subcollections and old photos (skip if the pin is blocked by the checks below).
@@ -485,10 +490,10 @@ rateLimits:            no client access
 6. After commit: best-effort `placeIndex` increment (§5). If the transaction failed, delete the photos from step 2. Always delete the upload at the end.
 
 **`updatePin(input: { eventId, title?, description?, uploadId? })`**
-- Owner only. Status ACTIVE or HIDDEN. Reject if `now >= expiresAt`. `updatePin` < 10 today.
+- Owner only. Status ACTIVE or HIDDEN. Reject if `now >= expiresAt`. `updatePin` < 10 today. Not while `hiddenReason == 'REPORTS'` (`NOT_EDITABLE`, "under review"): the reported title, description and photo stay as they are until a moderator decides. These checks also run read-only before the photo is processed (as in `createPin` step 1), and again in the transaction.
 - New `uploadId` → same photo step as create (new versioned path); delete old photos after the write succeeds.
 - **Any change resets `moderation.decision` to `'NONE'`** (stops approve-then-swap).
-- **A photo change starts a new vote round**, in the same transaction as the pin write: `voteRound + 1`, `hereVotes = notThereVotes = 0`, `verified = false`, `rankScore = isFeatured ? 100000 : 0`. People verified the old photo, not the new one. Afterwards, `recursiveDelete` the old `votes` as cleanup only — correctness comes from the round number, so a vote cast mid-edit can't be counted twice. Title/description edits keep votes.
+- **A photo change starts a new vote round**, in the same transaction as the pin write: `voteRound + 1`, `hereVotes = notThereVotes = 0`, `verified = false`, `rankScore = isFeatured ? 100000 : 0`. People verified the old photo, not the new one. Afterwards, delete the votes whose `round` is older than the new round, as cleanup only (a vote cast right after the edit is kept) — correctness comes from the round number, so a vote cast mid-edit can't be counted twice. Title/description edits keep votes.
 - A HIDDEN pin stays HIDDEN after an edit. Location can't change.
 
 **`castVote(input: { pinId, value: 'HERE' | 'NOT_THERE' })`**
@@ -512,7 +517,7 @@ rateLimits:            no client access
 | Action | From → to | Also sets |
 |---|---|---|
 | `APPROVE` | HIDDEN → ACTIVE | `decision = 'APPROVED'`, `hiddenReason = null` |
-| `REMOVE` | ACTIVE/HIDDEN → REMOVED | `removedBy = 'ADMIN'`, `decision = 'REJECTED'` |
+| `REMOVE` | ACTIVE/HIDDEN → REMOVED (also an owner-REMOVED pin with `hiddenReason: 'REPORTS'`) | `removedBy = 'ADMIN'`, `decision = 'REJECTED'`; deletes the photos |
 | `RESTORE` | REMOVED (by admin) → ACTIVE | `removedBy = null`, `decision = 'APPROVED'` |
 | `BAN_USER` | owner's pins → REMOVED | Ban procedure (§5 `users`) |
 
@@ -523,7 +528,7 @@ Each action sets `moderation.reviewedBy`, `reviewedAt`, `note`. Until the admin 
 | Rule | Enforced by |
 |---|---|
 | Anonymous = read only | Rules: `write: false` everywhere; callables require `auth` |
-| Private beta: only testers write | `config/testers` check in every write callable while `launchMode == 'BETA'` |
+| Private beta: only testers write | `config/testers` check in every write callable except `deletePin` while `launchMode == 'BETA'` |
 | One pin per user per event | Fixed doc ID + transaction in `createPin` |
 | Max 3 creates per event; admin-removed stays removed | `createPin` transaction |
 | Rate limits (create 3, update 10, vote 40, report 20 per day) | `rateLimits/{uid}` in each callable |
@@ -582,10 +587,10 @@ Today is **Thu Oct 1, 2026**. The code is built by Claude Code agents, so phases
 - **Beta testers** cover what automation can't: real phones, mobile data, iPhone photos, the home-screen app, confusing wording.
 
 ### Phase 0 — Foundations (Oct 1–3)
-- Scaffold Vite + Vue + TS; add Ionic Vue, Pinia, Vue Router, Tailwind v4 (no Preflight, layer order from §2), mapbox-gl, firebase, geofire-common, Vitest, rules-unit-testing.
+- Scaffold Vite + Vue + TS; add Ionic Vue, Pinia, Vue Router, Tailwind v4 (no Preflight, layer order from §2), maplibre-gl, firebase, geofire-common, Vitest, rules-unit-testing.
 - Firebase project on Blaze, **everything in `us-central1`**. Budget alerts at $5 and $20. `firebase init`: Firestore, Storage, Functions (TS, Node 22), Hosting (SPA), emulators.
 - `src/services/firebase.ts`: emulators in dev, App Check init (debug token in dev).
-- Mapbox account, token URL-restricted to `localhost`, `<project>.web.app`, `<project>.firebaseapp.com`. `spooky-dark` Studio style. Usage alert at 40k loads/month.
+- Map: MapLibre GL JS with OpenFreeMap's public `dark` style — no account or key.
 - `.env.example`, git repo.
 
 **Done when:** `npm run dev` shows an Ionic page · `npm run build` has no TS errors · emulators run and the app connects to them · a placeholder deploys to `<project>.firebaseapp.com`.
@@ -597,7 +602,7 @@ Today is **Thu Oct 1, 2026**. The code is built by Claude Code agents, so phases
 - Google provider enabled. `authService` (`signInWithPopup`), `useAuthStore`, SignInPage, and the `authDomain` host redirect (F4) — needed so the map can be tested signed-in.
 - `functions/data/areas.json` (+ `src/config/areas.ts`) with the Tauranga area.
 - ExplorePage: place search over `placeIndex` (areas + towns, macron-insensitive), opens on the Tauranga area with town chips, popular places, near me, area/town results with cursor paging, verified-only toggle, `?area=`/`?town=`/`?pin=` handling and the `/a/`, `/t/`, `/p/` redirect routes.
-- Map segment: `useMapbox` (single instance, `v-show`), fixed-cell queries + cache, clustering, verified/unverified icons, sign-in prompt for anonymous, `mapAccess` handling.
+- Map segment: `useMap` (single instance, `v-show`), fixed-cell queries + cache, clustering, verified/unverified icons, sign-in prompt for anonymous, `mapAccess` handling.
 - Pin detail sheet (read-only parts).
 - `scripts/seed.ts` (config, events, placeIndex, ~50 pins across Tauranga, Mount Maunganui, Pāpāmoa and Te Puke, plus a few in Rotorua outside the area) and `scripts/createEvents.ts`.
 - Read rules + rules tests (anonymous can read ACTIVE pins, config, events, placeIndex; can't read HIDDEN; can't write anything; a signed-in user can `get` their own non-existent pin and sees exists=false; `isAdmin()` via a test claim).
@@ -637,9 +642,9 @@ Today is **Thu Oct 1, 2026**. The code is built by Claude Code agents, so phases
 - `archiveExpiredPins` deployed and tested against seeded expired pins.
 
 ### Phase 4 — Christmas update (by Nov 15)
-- `festive-snow` style, Christmas palette/icons, `CHRISTMAS_2026` event doc, season switcher.
+- OpenFreeMap `positron` style, Christmas palette/icons, `CHRISTMAS_2026` event doc, season switcher.
 - F11 email link sign-in (custom sender domain with SPF/DKIM, `/auth/complete`, 24 h counting rule now matters).
-- Optional custom domain (add to Mapbox token, Auth authorized domains, and use as `authDomain`).
+- Optional custom domain (add to Auth authorized domains, and use as `authDomain`).
 - Full PWA service worker with offline fallback (keep the `/__/` denylist).
 - AdminQueuePage (UI over `moderatePin`).
 - `purgeExpiredPins`.
@@ -651,7 +656,7 @@ Stripe Checkout via `createCheckoutSession`; `stripeWebhook` verifies the signat
 - `@capacitor/geolocation`, `@capacitor/camera`, `@capacitor/app`; `@capacitor-firebase/authentication` for Google, Apple and email link.
 - **Sign in with Apple** is required on iOS once Google sign-in is offered.
 - Email links on native: Firebase Dynamic Links is shut down (Aug 2025). Use the Hosting domain for iOS Universal Links / Android App Links, `ActionCodeSettings.linkDomain`, handle `appUrlOpen`. JS SDK must use `initializeAuth(app, { persistence: indexedDBLocalPersistence })`. Never set `dynamicLinkDomain`.
-- Separate Mapbox token for native (WebView origins are `capacitor://localhost` / `https://localhost`).
+- The map needs no key on native either (OpenFreeMap has no origin restrictions). If we've moved to a paid tile provider by then, allow the WebView origins (`capacitor://localhost` / `https://localhost`).
 - App Check native providers via `@capacitor-firebase/app-check`.
 - **Hide all purchase and donation UI in native builds** (store rules require in-app purchase for digital goods). Recheck store rules at submission.
 - Account deletion, report + block (Apple 1.2), terms acceptance, App Privacy / Data Safety forms. Apple may question the map requiring sign-in; the list view working without an account helps.
@@ -664,7 +669,7 @@ Budget is close to zero. Expected cost for a one-town Halloween launch: **about 
 
 | Service | Free allowance (approx.) | Launch-scale use | Risk and mitigation |
 |---|---|---|---|
-| Mapbox GL JS | 50k map loads/month, then ~$5 per 1k | Members only; one load per session | Usage alert at 40k. `mapAccess: 'OFF'` switch. Escape hatch: MapLibre + self-hosted tiles. |
+| Map (MapLibre GL JS + OpenFreeMap) | Free: no key, no usage limits | Members only; one map per session | No SLA — if it's down or slow, `mapAccess: 'OFF'` and point the style URLs at self-hosted OpenFreeMap / Protomaps or a paid provider. Never `tile.openstreetmap.org`. |
 | Firestore | 50k reads + 20k writes per day | A search + 3 pages ≈ 60 reads; map viewport ≈ tens–hundreds | Zoom ≥ 11, cell cache, `limit`, no `onSnapshot` on lists/map |
 | Cloud Functions | ~2M invocations/month | Only writes call functions | `minInstances: 0` |
 | Cloud Storage | No-cost allowance in US regions | Thumbnails ~30 KB, full photos ~200 KB | Client resize, 10 MB cap, lifecycle on `uploads/` |
@@ -674,10 +679,9 @@ Budget is close to zero. Expected cost for a one-town Halloween launch: **about 
 
 **Safety switches, cheapest first:**
 1. Budget alerts at $5 and $20 (email).
-2. Mapbox usage alert at 40k loads.
-3. `config/app.mapAccess = 'OFF'` → list-only for everyone, instantly, no deploy.
-4. Rotate/delete the Mapbox token → map stops loading everywhere.
-5. Optional hard stop: a budget → Pub/Sub → function that disables billing on the project. This **takes the whole app offline**; only use it if an unexpected bill is worse than downtime.
+2. `config/app.mapAccess = 'OFF'` → list-only for everyone, instantly, no deploy.
+3. Map tiles misbehaving → change `VITE_MAP_STYLE_*` to another provider and redeploy.
+4. Optional hard stop: a budget → Pub/Sub → function that disables billing on the project. This **takes the whole app offline**; only use it if an unexpected bill is worse than downtime.
 
 ---
 
@@ -688,7 +692,8 @@ Budget is close to zero. Expected cost for a one-town Halloween launch: **about 
 - **Photos:** all metadata removed server-side. Guidelines ask users not to show house numbers, plates or faces. Automated blurring and SafeSearch are out of scope for launch.
 - **No public profiles.** Pins never show who posted them. Emails live only in Firebase Auth.
 - **Town only**, never street, is derived and stored.
-- **Data retention:** pins and photos deleted ~13 months after the event.
+- **Data retention:** pins and photos deleted ~13 months after the event. An owner's delete hides the pin and deletes its photo at once (a reported pin's photo is kept for the moderator); the rest of the pin doc stays, hidden, until the purge, to enforce per-season limits. The privacy policy says exactly this.
+- **Third parties:** map tiles load straight from OpenFreeMap, which sees the viewer's IP and the map area (including the area around a house in the location picker). The privacy policy names it. The beta tester email list lives only in `config/testers` (server-read).
 - **Law:** NZ **Privacy Act 2020** (Information Privacy Principles; notifiable privacy breaches go to the Privacy Commissioner). The privacy policy must say what's collected (Google account email, approximate location, photos), why, where it's stored (Google Cloud, USA), how long (~13 months), and how to ask for access or deletion.
 - **Halloween and kids:** don't show who submitted a pin; set a minimum age in the terms.
 

@@ -1,17 +1,18 @@
-// All browse-map code lives here (CLAUDE.md stack rule). One mapbox Map per
-// page for the whole session (golden rule 5): the Map is created once, into a
-// module-level container element that is moved into whichever host mounts,
-// and it is never removed except on a real page unload. Season changes call
-// setStyle() and re-add images, sources and layers on 'style.load'.
+// All browse-map code lives here (CLAUDE.md stack rule). MapLibre GL JS with
+// OpenFreeMap's public styles (no key). One Map per page for the whole session
+// (golden rule 5): the Map is created once, into a module-level container
+// element that is moved into whichever host mounts, and it is never removed
+// except on a real page unload. Season changes call setStyle() and re-add
+// images, sources and layers on 'style.load'.
 import { readonly, ref, watch, type Ref } from 'vue'
 import type {
+  AddLayerObject,
   GeoJSONSource,
-  LayerSpecification,
-  Map as MapboxMap,
+  Map as MapLibreMap,
   MapMouseEvent,
   PointLike,
-} from 'mapbox-gl'
-import { env } from '@/config/env'
+} from 'maplibre-gl'
+import { loadMapLibre } from '@/composables/loadMapLibre'
 import { SEASON_THEMES, type SeasonTheme } from '@/config/seasons'
 import { cellPrecisionForZoom, cellsForViewport, type LatLng } from '@/lib/geoCells'
 import { MARKER_IMAGE, markerImages, markerPixelRatio } from '@/lib/markerImages'
@@ -21,7 +22,7 @@ import { usePinsStore } from '@/stores/pins'
 import { useSeasonStore } from '@/stores/season'
 import type { Pin, Season } from '@/types/models'
 
-export type MapStatus = 'idle' | 'loading' | 'ready' | 'no-token' | 'error'
+export type MapStatus = 'idle' | 'loading' | 'ready' | 'error'
 export type LocateError = 'denied' | 'unavailable'
 
 /** SPEC F2: re-query on moveend, debounced 400 ms. */
@@ -36,6 +37,8 @@ const LAYER_CLUSTER_COUNT = 'pl-cluster-count'
 const LAYER_PINS = 'pl-pins-unclustered'
 const LAYER_ME = 'pl-me'
 const TAP_PAD_PX = 10
+/** OpenFreeMap's glyph server only has this fontstack (SPEC §3). */
+export const MAP_TEXT_FONT = ['Noto Sans Regular']
 
 // ---- Minimal GeoJSON types (no @types/geojson in the project) -------------
 
@@ -82,8 +85,8 @@ function meCollection(me: LatLng | null) {
 
 // ---- Module-level singleton state ------------------------------------------
 
-let map: MapboxMap | null = null
-let creating: Promise<MapboxMap | null> | null = null
+let map: MapLibreMap | null = null
+let creating: Promise<MapLibreMap | null> | null = null
 let mapEl: HTMLDivElement | null = null
 let styleLoadedOnce = false
 let userMoved = false
@@ -131,7 +134,7 @@ function initialView(): { lat: number; lng: number; zoom: number } {
 
 // ---- Style content (re-added after every setStyle) ------------------------
 
-function addMarkerImages(m: MapboxMap, theme: SeasonTheme): boolean {
+function addMarkerImages(m: MapLibreMap, theme: SeasonTheme): boolean {
   const images = markerImages(theme, markerPixelRatio(window.devicePixelRatio))
   for (const img of images) {
     if (m.hasImage(img.name)) m.removeImage(img.name)
@@ -140,7 +143,7 @@ function addMarkerImages(m: MapboxMap, theme: SeasonTheme): boolean {
   return images.length === 2
 }
 
-function pinLayer(theme: SeasonTheme, haveImages: boolean): LayerSpecification {
+function pinLayer(theme: SeasonTheme, haveImages: boolean): AddLayerObject {
   const notCluster = ['!', ['has', 'point_count']] as const
   if (haveImages) {
     return {
@@ -173,7 +176,7 @@ function pinLayer(theme: SeasonTheme, haveImages: boolean): LayerSpecification {
   }
 }
 
-function installStyleContent(m: MapboxMap): void {
+function installStyleContent(m: MapLibreMap): void {
   const theme = themeFor(currentSeason())
   let haveImages = false
   try {
@@ -218,7 +221,7 @@ function installStyleContent(m: MapboxMap): void {
       filter: ['has', 'point_count'],
       layout: {
         'text-field': ['get', 'point_count_abbreviated'],
-        'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
+        'text-font': MAP_TEXT_FONT,
         'text-size': 13,
         'text-allow-overlap': true,
         'text-ignore-placement': true,
@@ -320,15 +323,9 @@ async function refresh(): Promise<void> {
 
 // ---- Events -------------------------------------------------------------
 
-function saveViewport(m: MapboxMap): void {
+function saveViewport(m: MapLibreMap): void {
   const c = m.getCenter()
   useMapStore().setViewport({ lat: c.lat, lng: c.lng }, m.getZoom())
-}
-
-interface RenderedFeature {
-  layer?: { id: string }
-  properties?: Record<string, unknown> | null
-  geometry?: { type: string; coordinates?: unknown }
 }
 
 function onClick(e: MapMouseEvent): void {
@@ -340,8 +337,7 @@ function onClick(e: MapMouseEvent): void {
     [e.point.x - TAP_PAD_PX, e.point.y - TAP_PAD_PX],
     [e.point.x + TAP_PAD_PX, e.point.y + TAP_PAD_PX],
   ]
-  // mapbox-gl's feature type extends GeoJSON.Feature, which isn't installed here.
-  const features = m.queryRenderedFeatures(box, { layers }) as unknown as RenderedFeature[]
+  const features = m.queryRenderedFeatures(box, { layers })
 
   const pin = features.find((f) => f.layer?.id === LAYER_PINS)
   const pinId = pin?.properties?.id
@@ -358,13 +354,15 @@ function onClick(e: MapMouseEvent): void {
   const coords = geom?.type === 'Point' ? (geom.coordinates as [number, number]) : null
   const src = m.getSource<GeoJSONSource>(SRC_PINS)
   if (!src || !coords) return
-  src.getClusterExpansionZoom(clusterId, (err, zoom) => {
-    if (err || zoom === null || zoom === undefined) return
-    m.easeTo({ center: coords, zoom })
-  })
+  src
+    .getClusterExpansionZoom(clusterId)
+    .then((zoom) => m.easeTo({ center: coords, zoom }))
+    .catch(() => {
+      // The cluster went away (data changed mid-tap): nothing to expand.
+    })
 }
 
-function wire(m: MapboxMap): void {
+function wire(m: MapLibreMap): void {
   m.on('style.load', () => {
     try {
       installStyleContent(m)
@@ -398,7 +396,7 @@ function wire(m: MapboxMap): void {
   }
   m.on('error', (e: { error?: unknown }) => {
     console.warn('[map]', e.error ?? e)
-    // Before the first style loads (bad token, style 404, offline) the map is unusable.
+    // Before the first style loads (style 404, offline) the map is unusable.
     if (!styleLoadedOnce) status.value = 'error'
   })
 }
@@ -414,24 +412,19 @@ function hookUnload(): void {
   })
 }
 
-async function createMap(): Promise<MapboxMap | null> {
-  const token = env.mapbox.token
-  if (!token) {
-    status.value = 'no-token'
-    return null
-  }
+async function createMap(): Promise<MapLibreMap | null> {
   status.value = 'loading'
   try {
-    const [mod] = await Promise.all([import('mapbox-gl'), import('mapbox-gl/dist/mapbox-gl.css')])
-    const mapboxgl = mod.default
-    mapboxgl.accessToken = token
+    const maplibre = await loadMapLibre()
     const view = initialView()
-    const m = new mapboxgl.Map({
+    const m = new maplibre.Map({
       container: getMapEl(),
       style: themeFor(currentSeason()).mapStyle,
       center: [view.lng, view.lat],
       zoom: view.zoom,
-      attributionControl: true,
+      // OSM / OpenMapTiles credit comes from the style; collapses to an (i)
+      // button on narrow maps once the user pans.
+      attributionControl: {},
       dragRotate: false,
       pitchWithRotate: false,
       touchPitch: false,
@@ -484,11 +477,11 @@ function showLocateError(err: LocateError): void {
 
 // ---- Public composable -----------------------------------------------------
 
-export interface UseMapboxOptions {
+export interface UseMapOptions {
   onSelectPin?: (id: string) => void
 }
 
-export function useMapbox(host: Ref<HTMLElement | null>, options: UseMapboxOptions = {}) {
+export function useMap(host: Ref<HTMLElement | null>, options: UseMapOptions = {}) {
   selectHandler = options.onSelectPin ?? null
   const season = useSeasonStore()
   const pins = usePinsStore()
@@ -497,10 +490,6 @@ export function useMapbox(host: Ref<HTMLElement | null>, options: UseMapboxOptio
   async function activate(): Promise<void> {
     const el = host.value
     if (!el) return
-    if (!env.mapbox.token) {
-      status.value = 'no-token'
-      return
-    }
     const container = getMapEl()
     if (container.parentElement !== el) el.appendChild(container)
     if (!map) {
@@ -560,7 +549,7 @@ export function useMapbox(host: Ref<HTMLElement | null>, options: UseMapboxOptio
       useMapStore().truncated = false
       pushPins()
       // diff: false forces a full reload so 'style.load' always fires.
-      map.setStyle(themeFor(next).mapStyle, { diff: false } as Parameters<MapboxMap['setStyle']>[1])
+      map.setStyle(themeFor(next).mapStyle, { diff: false })
     },
   )
 

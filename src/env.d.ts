@@ -7,10 +7,10 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_STORAGE_BUCKET: string
   readonly VITE_FIREBASE_APP_ID: string
   readonly VITE_RECAPTCHA_ENTERPRISE_SITE_KEY: string
-  readonly VITE_MAPBOX_TOKEN: string
-  readonly VITE_MAPBOX_STYLE_HALLOWEEN: string
-  readonly VITE_MAPBOX_STYLE_CHRISTMAS: string
+  readonly VITE_MAP_STYLE_HALLOWEEN: string
+  readonly VITE_MAP_STYLE_CHRISTMAS: string
   readonly VITE_USE_EMULATORS: string
+  readonly VITE_APP_VERSION: string
 }
 
 interface ImportMeta {

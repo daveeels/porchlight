@@ -21,8 +21,12 @@ test('home opens on Tauranga & surrounds with seeded pins, verified first', asyn
 
   await loadAllPages(page)
   const badges = await badgeOrder(page)
-  // 46 ACTIVE seed pins in the area (Rotorua and HIDDEN/REMOVED ones excluded).
-  expect(badges).toHaveLength(46)
+  // 46 ACTIVE seed pins in the area (Rotorua and HIDDEN/REMOVED ones excluded),
+  // plus any "E2E …" displays the add-display specs (running in parallel) have
+  // live in Mount Maunganui right now. The list is fetched once (no
+  // onSnapshot), so the DOM can't change between these two reads.
+  const e2ePins = await cards(page).filter({ hasText: 'E2E ' }).count()
+  expect(badges).toHaveLength(46 + e2ePins)
   expect(badges[0]).toContain('Verified')
   const firstUnverified = badges.findIndex((b) => b.includes('Unverified'))
   expect(firstUnverified).toBeGreaterThan(0)

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // Place search over the single placeIndex doc (SPEC F1): filtered on the
 // client as the user types, areas first, macron-insensitive. A short
-// "Popular places" row sits under the box; focusing the empty box lists more.
+// "Popular places" row sits under the box (hidden while the page shows town
+// chips instead); focusing the empty box lists more.
 import { computed, ref } from 'vue'
 import { IonButton, IonChip, IonItem, IonLabel, IonList, IonNote, IonSearchbar } from '@ionic/vue'
 import { searchPlaces, type PlaceResult } from '@/lib/search'
@@ -10,6 +11,14 @@ import { useSeasonStore } from '@/stores/season'
 
 /** Popular places shown under the search box while it isn't focused. */
 const POPULAR_COUNT = 5
+
+const props = withDefaults(
+  defineProps<{
+    /** Show the "Popular places" row under the box. The dropdown always lists them. */
+    showPopular?: boolean
+  }>(),
+  { showPopular: true },
+)
 
 const emit = defineEmits<{ select: [place: PlaceResult] }>()
 
@@ -23,7 +32,7 @@ const results = computed<PlaceResult[]>(() =>
   pins.placeIndex ? searchPlaces(pins.placeIndex, query.value) : [],
 )
 const popular = computed<PlaceResult[]>(() =>
-  pins.placeIndex ? searchPlaces(pins.placeIndex, '', POPULAR_COUNT) : [],
+  props.showPopular && pins.placeIndex ? searchPlaces(pins.placeIndex, '', POPULAR_COUNT) : [],
 )
 const open = computed(() => focused.value || query.value.trim().length > 0)
 const heading = computed(() => (query.value.trim() ? 'Places' : 'Popular places'))
