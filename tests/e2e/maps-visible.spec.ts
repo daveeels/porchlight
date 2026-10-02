@@ -45,3 +45,23 @@ test('the browse map fills the Map tab when signed in', async ({ page }, testInf
   expect(box.canvasH).toBeGreaterThan(300)
   await snap(page, testInfo, 'browse-map')
 })
+
+test.describe('on a small phone (iPhone SE size)', () => {
+  test.use({ viewport: { width: 375, height: 667 } })
+
+  test('the location step keeps "Next: photo" on screen', async ({ page }, testInfo) => {
+    const email = testerEmail(testInfo, 'smallphone')
+    await addTesters(email)
+    await page.goto('/submit')
+    await expect(page).toHaveURL(/\/sign-in\?redirect=/, FIRST_LOAD)
+    await completeGoogleSignIn(page, email)
+    await expect(page).toHaveURL(/\/submit$/, FIRST_LOAD)
+    await expect(page.getByTestId('location-map').locator('canvas')).toBeAttached(FIRST_LOAD)
+    await page.getByRole('button', { name: 'Use my current location' }).click()
+    await expect(page.getByTestId('location-set')).toBeVisible(FIRST_LOAD)
+    const next = page.locator('ion-button', { hasText: 'Next: photo' })
+    await expect(next).toBeInViewport()
+    await expect(next).toBeEnabled()
+    await snap(page, testInfo, 'location-small-phone')
+  })
+})

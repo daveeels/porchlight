@@ -86,7 +86,11 @@ const roughFix = computed(() => {
     </p>
     <p v-if="chosen" class="m-0 text-sm font-medium" role="status" data-testid="location-set">Location set ✓</p>
 
-    <ion-button expand="block" class="tap m-0" :disabled="!chosen" @click="emit('next')">Next: photo</ion-button>
+    <!-- Pinned to the bottom of the screen: on small phones the map fills the
+         view, and a finger on the map pans it instead of scrolling the page. -->
+    <div class="next-bar">
+      <ion-button expand="block" class="tap m-0" :disabled="!chosen" @click="emit('next')">Next: photo</ion-button>
+    </div>
   </section>
 </template>
 
@@ -95,8 +99,9 @@ const roughFix = computed(() => {
   min-height: 48px;
 }
 .map-wrap {
-  height: min(50vh, 360px);
-  min-height: 240px;
+  /* Scales with the screen so small phones keep room for the text and the
+     Next button: ~200 px on an iPhone SE, 340 px on big phones. */
+  height: clamp(190px, 34vh, 340px);
   background: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.08);
 }
 /* See MapView.vue: maplibre-gl.css would otherwise make this position:
@@ -104,6 +109,15 @@ const roughFix = computed(() => {
 .map-host {
   position: absolute;
   inset: 0;
+}
+.next-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin-inline: -16px;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: var(--pl-bg, var(--ion-background-color));
+  border-top: 1px solid var(--pl-line, transparent);
 }
 .overlay {
   background: rgba(var(--ion-background-color-rgb, 0, 0, 0), 0.6);

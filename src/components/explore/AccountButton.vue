@@ -35,11 +35,13 @@ async function openMenu(): Promise<void> {
 <template>
   <template v-if="auth.ready">
     <!-- A clear (light) button drawn as a cream pill: easy to spot, lighter
-         than a solid primary block. The 44 px tap target is the host. -->
-    <ion-button v-if="!auth.isSignedIn" router-link="/sign-in" fill="clear" class="tap sign-in">
+         than a solid primary block. The 44 px tap target is the host.
+         Distinct keys: never let Vue patch the avatar button into the Sign in
+         pill in place (a real iPhone showed a blank chip after signing out). -->
+    <ion-button v-if="!auth.isSignedIn" key="sign-in" router-link="/sign-in" fill="clear" class="tap sign-in">
       Sign in
     </ion-button>
-    <ion-button v-else fill="clear" class="tap" aria-label="Account" @click="openMenu">
+    <ion-button v-else key="account" fill="clear" class="tap" aria-label="Account" @click="openMenu">
       <ion-avatar class="avatar">
         <img v-if="photo" :src="photo" alt="" referrerpolicy="no-referrer" @error="photoFailed = true" />
         <span v-else class="initial">{{ initial }}</span>

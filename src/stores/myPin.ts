@@ -14,6 +14,7 @@ import {
 import { uploadPhoto } from '@/services/uploads'
 import type { EventId, Pin } from '@/types/models'
 import { useAuthStore } from './auth'
+import { usePinsStore } from './pins'
 import { useSeasonStore } from './season'
 
 export type SubmitPhase = 'upload' | 'save'
@@ -142,6 +143,7 @@ export const useMyPinStore = defineStore('myPin', () => {
       description: cleanDescription(draft.description),
       consentOwnerOrPermission: draft.consent,
     })
+    usePinsStore().afterOwnPinChanged(id)
     await load(true)
     return id
   }
@@ -157,6 +159,7 @@ export const useMyPinStore = defineStore('myPin', () => {
       description: cleanDescription(draft.description),
       ...(uploadId ? { uploadId } : {}),
     })
+    usePinsStore().afterOwnPinChanged(id)
     await load(true)
     return id
   }
@@ -164,7 +167,8 @@ export const useMyPinStore = defineStore('myPin', () => {
   /** deletePin (owner sets it to REMOVED). Rejects with PinWriteError. */
   async function remove(): Promise<void> {
     const { eventId: ev } = requireContext()
-    await deletePin({ eventId: ev })
+    const { pinId: id } = await deletePin({ eventId: ev })
+    usePinsStore().afterOwnPinChanged(id)
     await load(true)
   }
 

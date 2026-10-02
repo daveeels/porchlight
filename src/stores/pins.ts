@@ -315,11 +315,29 @@ export const usePinsStore = defineStore('pins', () => {
     cacheVersion.value++
   }
 
+  /**
+   * The user just added, edited or removed their own display. Every cached
+   * view of the area could now be wrong: the place list (search, chips,
+   * counts), the map's cells and the current list. Drop the caches and reload
+   * what's on screen; the map redraws via cacheVersion.
+   */
+  function afterOwnPinChanged(pinId: string): void {
+    knownPins.delete(pinId)
+    clearCellCache()
+    cacheVersion.value++
+    void loadPlaceIndex(true)
+    const sel = selection.value
+    if (!sel) return
+    if (sel.kind === 'nearMe') void loadNearMe(sel.lat, sel.lng)
+    else void loadFirstPage()
+  }
+
   return {
     // local updates (votes / reports)
     cacheVersion,
     patchPin,
     forgetPin,
+    afterOwnPinChanged,
     // place index
     placeIndex,
     placeIndexLoading,
