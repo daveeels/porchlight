@@ -1,11 +1,12 @@
 <script setup lang="ts">
 // Account menu entries (SPEC F6, §5 beta "Send feedback"): My display,
-// Community rules, Send feedback, About & privacy, Sign out. Render inside a popover or modal and
+// How Porchlight works, Community rules, Send feedback, About & privacy, Sign out. Render inside a popover or modal and
 // close it on `done`; or use useAccountMenu().actionSheetButtons() instead.
 import { IonIcon, IonItem, IonLabel, IonList } from '@ionic/vue'
 import {
   beerOutline,
   chatbubbleEllipsesOutline,
+  helpCircleOutline,
   homeOutline,
   informationCircleOutline,
   logOutOutline,
@@ -21,6 +22,11 @@ const menu = useAccountMenu()
 function feedback(): void {
   menu.sendFeedback()
   emit('done')
+}
+
+function welcome(): void {
+  emit('done')
+  menu.showWelcome()
 }
 
 function rules(): void {
@@ -39,6 +45,10 @@ function signOut(): void {
     <ion-item button :detail="false" router-link="/me" class="item" @click="emit('done')">
       <ion-icon slot="start" :icon="homeOutline" aria-hidden="true" />
       <ion-label>My display</ion-label>
+    </ion-item>
+    <ion-item button :detail="false" class="item" @click="welcome">
+      <ion-icon slot="start" :icon="helpCircleOutline" aria-hidden="true" />
+      <ion-label>How Porchlight works</ion-label>
     </ion-item>
     <ion-item button :detail="false" class="item" @click="rules">
       <ion-icon slot="start" :icon="shieldCheckmarkOutline" aria-hidden="true" />

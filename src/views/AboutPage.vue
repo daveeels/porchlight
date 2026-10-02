@@ -7,6 +7,7 @@ import { COMMUNITY_RULES, RULES_TITLE } from '@/config/terms'
 import { useAppConfigStore } from '@/stores/appConfig'
 import { useAuthStore } from '@/stores/auth'
 import { useTermsStore } from '@/stores/terms'
+import { useWelcomeStore } from '@/stores/welcome'
 import {
   IonBackButton,
   IonButton,
@@ -26,6 +27,7 @@ const route = useRoute()
 const appConfig = useAppConfigStore()
 const auth = useAuthStore()
 const terms = useTermsStore()
+const welcome = useWelcomeStore()
 
 const rulesButton = computed(() => (auth.isSignedIn && !terms.accepted ? 'Read and agree' : 'Open the community rules'))
 
@@ -69,6 +71,9 @@ onIonViewDidEnter(() => {
             surrounds. Anyone can search by town or suburb, or tap “Near me”, without an account. Sign in with Google to
             use the map, add your own display and vote.
           </p>
+          <ion-button fill="outline" class="tap mt-1" data-testid="about-welcome-open" @click="welcome.reopen()">
+            Show me the quick tour
+          </ion-button>
           <h2>Adding a display</h2>
           <p>
             Each account can add one display per season, with a photo, a short title and an optional description. New

@@ -1,7 +1,8 @@
 // Community rules agreement (SPEC §5 users, §6 TERMS_REQUIRED). After sign-in
 // the user's own users/{uid} doc says whether the current rules are agreed.
 // If not, the rules modal (TermsModal.vue, mounted once in App.vue) opens
-// once per session; "Not now" keeps browsing working. Writes that need the
+// once per session (after the welcome's card 4 when that shows first, see
+// setFirstAskHandler); "Not now" keeps browsing working. Writes that need the
 // rules call ensureAgreed() first, and a TERMS_REQUIRED from the server opens
 // the modal again (onTermsRequired) so the action can be retried.
 // The server is the real check; this store only makes the UI friendlier.
@@ -48,6 +49,15 @@ export const useTermsStore = defineStore('terms', () => {
   let loading: Promise<void> | null = null
   /** Bumped when the user changes, so late loads are ignored. */
   let generation = 0
+  /**
+   * The first-run welcome (SPEC F14) can take over the after-sign-in ask: it
+   * shows its own card first, then opens the rules. Returns true if it did.
+   */
+  let firstAskHandler: (() => boolean) | null = null
+
+  function setFirstAskHandler(handler: (() => boolean) | null): void {
+    firstAskHandler = handler
+  }
 
   const accepted = computed(() => state.value === 'accepted')
   const needsAgreement = computed(() => auth.isSignedIn && state.value === 'required')
@@ -165,7 +175,9 @@ export const useTermsStore = defineStore('terms', () => {
       if (!uid) return
       const gen = generation
       void load().then(() => {
-        if (gen === generation && state.value === 'required' && !notNowFor(uid) && !isOpen.value) open('agree')
+        if (gen !== generation || state.value !== 'required' || notNowFor(uid) || isOpen.value) return
+        if (firstAskHandler?.()) return
+        open('agree')
       })
     },
     { immediate: true },
@@ -187,5 +199,6 @@ export const useTermsStore = defineStore('terms', () => {
     showRules,
     agree,
     dismissed,
+    setFirstAskHandler,
   }
 })

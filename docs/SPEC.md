@@ -229,6 +229,17 @@ Flow: location → photo → details → preview → submit → success.
 - **Easy to find again:** "Community rules" in the account menu opens the same modal read-only ("You agreed on <date>"); the About page has a Community rules section.
 - **Server:** `acceptTerms` writes `termsVersion` + `termsAcceptedAt`; `createPin`, `updatePin`, `castVote` and `reportPin` reject with `TERMS_REQUIRED` until the current version is agreed (§6). `deletePin` and `moderatePin` don't need it.
 
+**F14. First-run welcome ("storybook cards", client only)**
+- A full-screen `IonModal` (a centred card on wide screens, not a sheet) with up to four cards: a big decorative picture (inline SVG, `aria-hidden`, coloured from the season's `--pl-art-*` tokens so Christmas recolours itself), a heading, one line of text, progress dots and a big primary button. **Skip** is always top right. Swiping left/right also moves between cards; no slide animation with `prefers-reduced-motion`. The modal is named by the card heading, which takes focus on every card. Copy lives in `src/config/welcome.ts`; "Halloween" in card 1 is the current season's label.
+  1. **Find the houses worth the drive** — "Porchlight shows the best Halloween displays around Tauranga, shared by the people who made them." (glowing porch)
+  2. **Search your suburb, or tap Near me** — "Glowing houses are verified: neighbours have checked they're really there." (dark map with glowing pins, "✓ 15" sticker)
+  3. **Seen one? Tell everyone** — "Tap "It's here" after you visit. Three votes and a display gets the ✓ Verified sticker." (vote buttons) — button **Let's go**
+  4. **Add your own display** — "Snap a photo and drop a pin. We show it 25–50 m away, so your exact address stays a little private." (phone camera + pin, "NEW" sticker) — button **Next: community rules**
+- **Visitors (cards 1–3):** once per device, for everyone (signed in or not), on Explore once it has loaded (results settled, no pin sheet or rules modal open, not off-season). Only when the page load **started on Explore** (`/`, `/a/`, `/t/`, `/p/`): a visit that starts on a deep link to `/sign-in`, `/auth/complete`, `/submit`, `/me` or `/about` doesn't get them that visit (nor after moving on to Explore), and isn't marked seen. Skip or **Let's go** sets `localStorage['porchlight.welcome.v1'] = 'seen'`.
+- **First sign-in (card 4 alone, one dot):** when a signed-in user's community rules (F13) aren't agreed and this device hasn't seen card 4, the welcome takes over the rules modal's after-sign-in ask: card 4 shows first, and its button **or Skip** closes it and then opens the rules (agree mode; "Not now" there works as before). Sets `localStorage['porchlight.welcome.member.v1'] = 'seen'`. Never shown once the rules are agreed. If a first sign-in lands while cards 1–3 are still to come or open, card 4 joins them (1–4, then the rules), so the two modals never stack.
+- **Reopen:** "How Porchlight works" in the account menu and "Show me the quick tour" on About show cards 1–3 (plus 4 when signed in), ending with **Done**. Reopening never opens the rules by itself.
+- Storage blocked → each run shows at most once per page load. One instance (`WelcomeFlow.vue` in `App.vue`), state in `useWelcomeStore`.
+
 **F10. Installable (the preferred way to use Porchlight)**
 - Web app manifest + icons (name "Porchlight", standalone display, season theme colour) so it installs to the home screen. A full offline service worker comes in Phase 4.
 - **Install prompt:** a dismissible, one-row "Add Porchlight to your home screen" card, shown once after real use (e.g. 2nd visit, or after opening 3 pins) — never on first load, never when already installed (`display-mode: standalone`). Dismissal remembered in `localStorage` for 14 days.
@@ -615,6 +626,8 @@ Each action sets `moderation.decision`, `reviewedBy`, `reviewedAt` on the pin; t
 | `/feature/:pinId`, `/supporter`, `/checkout/result` | Payment pages | 5 |
 | `*` | NotFoundPage | 1 |
 
+**First-run welcome (F14):** a full-screen modal over Explore on a first visit (cards 1–3), after a first sign-in on any screen (card 4, then the community rules), or from the account menu / About (reopen). At 375 × 667 the picture shrinks first so the button stays on screen.
+
 **Empty and error states:** off-season, town has no displays yet, no displays near you, zoom in to see displays, location permission denied, offline, sign-in cancelled/popup blocked, already have a pin, submissions closed, rate limited, map temporarily unavailable (`mapAccess: 'OFF'`).
 
 **Mobile rules:** design at 375 px first. Tap targets ≥ 44 × 44 px. No horizontal scroll. Pin details always in a bottom sheet.
@@ -678,7 +691,7 @@ Today is **Thu Oct 1, 2026**. The code is built by Claude Code agents, so phases
 - Turn on Firestore + Storage App Check enforcement.
 - Beta mode: `launchMode`, `config/testers` checks in all write callables, Beta badge, Send feedback, `noindex` flag, `scripts/setTesters.ts` (add/remove tester emails).
 - **F11 email link sign-in** (brought forward), **in-app browser guidance** on `/sign-in` (F4), **install prompt** (F10), donate link (F9).
-- Then a **design + usability polish pass** before beta invites: 2–3 visual directions mocked as screenshots for the owner to pick; persona walkthroughs (first-time visitor from a Facebook link, parent on a phone in the dark, older non-techy user, first-time poster); a 5-second first-visit welcome; copy review (short, friendly, Kiwi).
+- Then a **design + usability polish pass** before beta invites: 2–3 visual directions mocked as screenshots for the owner to pick; persona walkthroughs (first-time visitor from a Facebook link, parent on a phone in the dark, older non-techy user, first-time poster); a 5-second first-visit welcome (F14); copy review (short, friendly, Kiwi).
 - Playwright E2E suite (see Testing above) passing on both viewports.
 - Deploy the **private beta**; real-device smoke test (iPhone Safari, Android Chrome, installed home-screen app).
 - **Launch** after beta testing (§8 launch plan).

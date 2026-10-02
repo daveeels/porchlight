@@ -7,6 +7,25 @@ import { defineConfig, devices } from '@playwright/test'
 const PORT = 5180
 export const BASE_URL = `http://localhost:${PORT}`
 
+/**
+ * Every test starts with the first-run welcome (SPEC F14) already seen, so
+ * its full-screen cards don't cover the page under test. tests/e2e/welcome.spec.ts
+ * opts out with test.use({ storageState: { cookies: [], origins: [] } }). Card 4 "seen" also
+ * means a first sign-in opens the community rules straight away, as before.
+ */
+export const WELCOME_SEEN = {
+  cookies: [],
+  origins: [
+    {
+      origin: BASE_URL,
+      localStorage: [
+        { name: 'porchlight.welcome.v1', value: 'seen' },
+        { name: 'porchlight.welcome.member.v1', value: 'seen' },
+      ],
+    },
+  ],
+}
+
 export default defineConfig({
   testDir: 'tests/e2e',
   outputDir: 'test-results',
@@ -25,6 +44,7 @@ export default defineConfig({
     trace: 'retain-on-failure',
     locale: 'en-NZ',
     timezoneId: 'Pacific/Auckland',
+    storageState: WELCOME_SEEN,
   },
   projects: [
     { name: 'iphone', use: { ...devices['iPhone 13'], browserName: 'webkit' } },

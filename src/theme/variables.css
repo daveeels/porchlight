@@ -11,6 +11,9 @@
  *   --pl-cream           search box and Sign in pill; --pl-cream-text on it
  *   --pl-shadow          the hard "sticker" drop shadow
  *   --pl-glow            soft glow round verified cards and the wordmark
+ *   --pl-art-*           the welcome illustrations (src/components/welcome/art):
+ *                        night sky, house, windows, map; lights and markers
+ *                        use the primary / secondary colours
  */
 
 :root {
@@ -32,6 +35,21 @@
   --pl-cream-text: #6e5a45;
   --pl-shadow: #0c0806;
   --pl-glow: rgba(255, 181, 71, 0.4);
+
+  --pl-art-sky: #1d1622;
+  --pl-art-ground: #231915;
+  --pl-art-moon: #fff1cf;
+  --pl-art-wall: #3b2c27;
+  --pl-art-wall-2: #4a372f;
+  --pl-art-roof: #2a1f1b;
+  --pl-art-window: #ffcf73;
+  --pl-art-lamp: #ffd27a;
+  --pl-art-bulb: #a774ff;
+  --pl-art-map: #141010;
+  --pl-art-road: #2e231c;
+  --pl-art-road-minor: #3a2c23;
+  --pl-art-pin-faded: #8a7560;
+  --pl-art-you: #4ea1ff;
 
   /* Lantern amber */
   --ion-color-primary: #ffb547;
@@ -68,6 +86,21 @@
   --pl-cream-text: #5c5a4a;
   --pl-shadow: #070b09;
   --pl-glow: rgba(255, 210, 122, 0.38);
+
+  --pl-art-sky: #142029;
+  --pl-art-ground: #dfe7e2;
+  --pl-art-moon: #f3efe4;
+  --pl-art-wall: #34403a;
+  --pl-art-wall-2: #3f4b45;
+  --pl-art-roof: #24302a;
+  --pl-art-window: #ffe3a3;
+  --pl-art-lamp: #ffe7a8;
+  --pl-art-bulb: #7fd1a8;
+  --pl-art-map: #101714;
+  --pl-art-road: #22302a;
+  --pl-art-road-minor: #2c3b34;
+  --pl-art-pin-faded: #7d8a80;
+  --pl-art-you: #4ea1ff;
 
   /* Warm gold */
   --ion-color-primary: #ffd27a;

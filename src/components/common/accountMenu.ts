@@ -1,5 +1,5 @@
-// Account menu actions (My display, Community rules, Send feedback, About &
-// privacy, donate, Sign out) shared by AccountMenuItems.vue (a list, e.g.
+// Account menu actions (My display, How Porchlight works, Community rules,
+// Send feedback, About & privacy, donate, Sign out) shared by AccountMenuItems.vue (a list, e.g.
 // inside a popover) and the header's action sheet (actionSheetButtons()).
 import { useRouter } from 'vue-router'
 import { toastController, type ActionSheetButton } from '@ionic/vue'
@@ -8,12 +8,14 @@ import { feedbackMailto } from '@/lib/feedback'
 import { useAppConfigStore } from '@/stores/appConfig'
 import { useAuthStore } from '@/stores/auth'
 import { useTermsStore } from '@/stores/terms'
+import { useWelcomeStore } from '@/stores/welcome'
 
 export function useAccountMenu() {
   const router = useRouter()
   const auth = useAuthStore()
   const appConfig = useAppConfigStore()
   const terms = useTermsStore()
+  const welcome = useWelcomeStore()
 
   /** mailto: for "Send feedback", built when tapped so the URL is current. */
   function feedbackHref(): string {
@@ -54,10 +56,16 @@ export function useAccountMenu() {
     terms.showRules()
   }
 
+  /** The welcome cards again (SPEC F14); never opens the rules by itself. */
+  function showWelcome(): void {
+    welcome.reopen()
+  }
+
   /** Buttons for actionSheetController.create({ buttons }). */
   function actionSheetButtons(): ActionSheetButton[] {
     const buttons: ActionSheetButton[] = [
       { text: 'My display', handler: () => void router.push('/me') },
+      { text: 'How Porchlight works', handler: showWelcome },
       { text: 'Community rules', handler: showRules },
       { text: 'Send feedback', handler: sendFeedback },
       { text: 'About & privacy', handler: () => void router.push('/about') },
@@ -68,5 +76,5 @@ export function useAccountMenu() {
     return buttons
   }
 
-  return { feedbackHref, sendFeedback, donateUrl, donate, signOut, showRules, actionSheetButtons }
+  return { feedbackHref, sendFeedback, donateUrl, donate, signOut, showRules, showWelcome, actionSheetButtons }
 }
