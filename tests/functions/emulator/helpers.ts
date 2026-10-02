@@ -7,6 +7,8 @@ import { expect } from 'vitest'
 import { auth, bucket, db, FieldValue, Timestamp } from '../../../functions/src/lib/admin'
 import type { Caller } from '../../../functions/src/lib/caller'
 import type { FailReason } from '../../../functions/src/lib/errors'
+import { TERMS_VERSION } from '../../../functions/src/lib/terms'
+import { acceptTerms } from '../../../functions/src/users/acceptTerms'
 
 // sharp lives in functions/node_modules only.
 type SharpType = typeof import('../../../functions/node_modules/sharp').default
@@ -90,8 +92,22 @@ export interface TestUser extends Caller {
   email: string
 }
 
-/** An Auth emulator user (Google-style 28-char uid); a tester unless `tester: false`. */
-export async function newUser(opts: { tester?: boolean; emailVerified?: boolean; admin?: boolean } = {}): Promise<TestUser> {
+/**
+ * Agrees to the current community rules through the real acceptTerms
+ * callable (which also creates users/{uid} lazily). Every write callable
+ * except deletePin needs this first.
+ */
+export async function agreeToRules(user: Caller): Promise<void> {
+  await acceptTerms(user, { version: TERMS_VERSION })
+}
+
+/**
+ * An Auth emulator user (Google-style 28-char uid); a tester unless
+ * `tester: false`, and has agreed to the community rules unless `terms: false`.
+ */
+export async function newUser(
+  opts: { tester?: boolean; emailVerified?: boolean; admin?: boolean; terms?: boolean } = {},
+): Promise<TestUser> {
   const uid = randomString(ALNUM, 28)
   const email = `${uid.toLowerCase()}@Example.com`
   await auth().createUser({ uid, email, emailVerified: opts.emailVerified ?? true })
@@ -100,7 +116,9 @@ export async function newUser(opts: { tester?: boolean; emailVerified?: boolean;
       .doc('config/testers')
       .set({ emails: FieldValue.arrayUnion(email.toLowerCase()) }, { merge: true })
   }
-  return { uid, admin: opts.admin ?? false, email }
+  const user = { uid, admin: opts.admin ?? false, email }
+  if (opts.terms ?? true) await agreeToRules(user)
+  return user
 }
 
 /** A JPEG with EXIF camera + GPS tags (what a phone would upload). */

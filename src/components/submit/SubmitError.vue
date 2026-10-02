@@ -4,10 +4,12 @@
 import { computed } from 'vue'
 import { IonButton } from '@ionic/vue'
 import type { PinWriteError } from '@/services/pinWrites'
+import { useTermsStore } from '@/stores/terms'
 import { FINAL_SUBMIT_REASONS } from './validation'
 
 const props = defineProps<{ error: PinWriteError }>()
 const emit = defineEmits<{ retry: []; changePhoto: []; editDetails: [] }>()
+const terms = useTermsStore()
 
 const title = computed(() => {
   switch (props.error.reason) {
@@ -23,10 +25,17 @@ const title = computed(() => {
       return "That photo didn't work"
     case 'INVALID_INPUT':
       return 'Check your details'
+    case 'TERMS_REQUIRED':
+      return 'One quick thing first'
     default:
       return "Couldn't save your display"
   }
 })
+
+/** Agree to the community rules, then send the display again. */
+async function readRules(): Promise<void> {
+  if (await terms.requireAgreement()) emit('retry')
+}
 
 /** Reasons where trying the same thing again could work. */
 const retryable = computed(() => ['UPLOAD_FAILED', 'NETWORK', 'UNKNOWN'].includes(props.error.reason))
@@ -49,6 +58,9 @@ const retryable = computed(() => ['UPLOAD_FAILED', 'NETWORK', 'UNKNOWN'].include
     </ion-button>
     <ion-button v-else-if="error.reason === 'INVALID_INPUT'" expand="block" class="tap m-0" @click="emit('editDetails')">
       Edit details
+    </ion-button>
+    <ion-button v-else-if="error.reason === 'TERMS_REQUIRED'" expand="block" class="tap m-0" @click="readRules">
+      Read the community rules
     </ion-button>
     <ion-button v-else-if="retryable" expand="block" class="tap m-0" @click="emit('retry')">Try again</ion-button>
     <ion-button

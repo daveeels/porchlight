@@ -3,8 +3,8 @@
 //    (countedIfNew, authCreatedAt); beta gate
 // 2. one transaction reading users/{uid}, rateLimits/{uid}, the pin and
 //    pins/{pinId}/votes/{uid} first. A vote whose round != pin.voteRound is no vote.
-// 3. checks: not banned, castVote < 40 today, pin ACTIVE, caller isn't the
-//    owner. Same value as the current-round vote → no-op (nothing written).
+// 3. checks: not banned, community rules agreed (TERMS_REQUIRED), castVote
+//    < 40 today, pin ACTIVE, caller isn't the owner. Same value as the current-round vote → no-op (nothing written).
 // 4. counted = the current-round vote's `counted` when changing, else countedIfNew
 // 5–6. counted votes move the counters; recompute verified + rankScore; the
 //    F7 "not there" rule moves ACTIVE → HIDDEN (hiddenReason 'NOT_THERE')
@@ -15,7 +15,7 @@ import { assertCanWrite } from '../lib/beta.js'
 import { requireAuth, type Caller } from '../lib/caller.js'
 import { takeRateLimit, type RateLimitDoc } from '../lib/rateLimit.js'
 import { tallyVote, type CurrentVote } from '../lib/thresholds.js'
-import { assertNotBanned, lookupAuthUser, userFromSnap, type UserDoc } from '../lib/users.js'
+import { assertNotBanned, assertTermsAccepted, lookupAuthUser, userFromSnap, type UserDoc } from '../lib/users.js'
 import { parseCastVoteInput, type VoteValue } from '../lib/validation.js'
 import type { PinDoc, PinStatus } from '../pins/model.js'
 import { engageablePin, engagementRefs } from './shared.js'
@@ -70,6 +70,7 @@ export async function castVote(callerIn: Caller | null, data: unknown): Promise<
     // 3. Checks, in SPEC order.
     const { user, exists: userExists } = userFromSnap(userSnap, authInfo.authCreatedAt)
     assertNotBanned(user)
+    assertTermsAccepted(user)
     const rateLimit = takeRateLimit(rateSnap.data(), 'castVote', now)
     const pin = engageablePin(pinSnap, uid, 'vote')
     const round = typeof pin.voteRound === 'number' ? pin.voteRound : 0

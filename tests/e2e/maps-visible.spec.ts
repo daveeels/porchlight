@@ -3,7 +3,7 @@
 // Tailwind's absolute/inset-0 and leaving the map 0 px tall.
 import { expect, test, type Page } from '@playwright/test'
 import { FIRST_LOAD, MOUNT_MAUNGANUI, snap } from './helpers'
-import { addTesters, completeGoogleSignIn, testerEmail } from './phase2'
+import { addTesters, completeGoogleSignIn, mockPhoton, searchAddress, testerEmail } from './phase2'
 
 test.use({ geolocation: MOUNT_MAUNGANUI, permissions: ['geolocation'] })
 
@@ -63,5 +63,28 @@ test.describe('on a small phone (iPhone SE size)', () => {
     await expect(next).toBeInViewport()
     await expect(next).toBeEnabled()
     await snap(page, testInfo, 'location-small-phone')
+  })
+
+  test('address search fits, and "Next: photo" stays on screen', async ({ page }, testInfo) => {
+    await mockPhoton(page)
+    const email = testerEmail(testInfo, 'smalladdress')
+    await addTesters(email)
+    await page.goto('/submit')
+    await expect(page).toHaveURL(/\/sign-in\?redirect=/, FIRST_LOAD)
+    await completeGoogleSignIn(page, email)
+    await expect(page).toHaveURL(/\/submit$/, FIRST_LOAD)
+    await expect(page.getByTestId('location-map').locator('canvas')).toBeAttached(FIRST_LOAD)
+    const next = page.locator('ion-button', { hasText: 'Next: photo' })
+    await expect(next).toBeInViewport()
+    await snap(page, testInfo, 'location-small-phone-search')
+
+    await searchAddress(page, 'ocean beach')
+    await expect(next).toBeInViewport()
+    await snap(page, testInfo, 'location-small-phone-results')
+    await page.getByTestId('address-results').locator('ion-item').first().click()
+    await expect(page.getByTestId('location-set')).toBeVisible(FIRST_LOAD)
+    await expect(next).toBeInViewport()
+    await expect(next).toBeEnabled()
+    await snap(page, testInfo, 'location-small-phone-chosen')
   })
 })

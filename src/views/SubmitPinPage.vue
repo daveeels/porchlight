@@ -33,6 +33,7 @@ import { useAppConfigStore } from '@/stores/appConfig'
 import { useAuthStore } from '@/stores/auth'
 import { useMyPinStore, type SubmitProgress } from '@/stores/myPin'
 import { useSeasonStore } from '@/stores/season'
+import { useTermsStore } from '@/stores/terms'
 
 type Step = 'location' | 'photo' | 'details' | 'preview' | 'success'
 
@@ -43,6 +44,7 @@ const myPin = useMyPinStore()
 const season = useSeasonStore()
 const appConfig = useAppConfigStore()
 const auth = useAuthStore()
+const terms = useTermsStore()
 
 const isEdit = computed(() => route.query.edit === '1')
 const steps = computed<Step[]>(() =>
@@ -142,7 +144,7 @@ const loading = computed(() => !season.ready || (!myPin.loaded && !myPin.error &
 
 const seasonIcon = computed(() => (season.season ? SEASON_THEMES[season.season].icon : '🏠'))
 
-const pageTitle =computed(() => (isEdit.value ? 'Edit my display' : 'Add my display'))
+const pageTitle = computed(() => (isEdit.value ? 'Edit my display' : 'Add my display'))
 const stepIndex = computed(() => steps.value.indexOf(step.value))
 const stepLabel = computed(() =>
   stepIndex.value >= 0 ? `Step ${stepIndex.value + 1} of ${steps.value.length}` : '',
@@ -173,9 +175,15 @@ function back(): void {
 
 async function submit(): Promise<void> {
   if (busy.value) return
-  busy.value = true
   submitError.value = null
+  // Community rules first (server-enforced as TERMS_REQUIRED).
+  if (!(await terms.ensureAgreed())) {
+    submitError.value = new PinWriteError('TERMS_REQUIRED')
+    return
+  }
+  busy.value = true
   progress.value = null
+  let retry = false
   const onProgress = (p: SubmitProgress) => {
     progress.value = p
   }
@@ -205,11 +213,15 @@ async function submit(): Promise<void> {
     }
     step.value = 'success'
   } catch (e) {
-    submitError.value = toPinWriteError(e)
+    const err = toPinWriteError(e)
+    // The rules changed since this device last checked: agree, then send again.
+    if (err.reason === 'TERMS_REQUIRED' && (await terms.onTermsRequired())) retry = true
+    else submitError.value = err
   } finally {
     busy.value = false
     progress.value = null
   }
+  if (retry) await submit()
 }
 
 function toMyDisplay(): void {

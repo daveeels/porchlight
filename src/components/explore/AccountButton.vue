@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Header account control: "Sign in" (→ /sign-in), or the user's avatar with a
-// account action sheet (My display, Send feedback, About & privacy, Sign out).
+// account action sheet (My display, Community rules, Send feedback, About &
+// privacy, Sign out).
 import { computed, ref, watch } from 'vue'
 import { IonAvatar, IonButton, actionSheetController } from '@ionic/vue'
 import { useAccountMenu } from '@/components/common/accountMenu'

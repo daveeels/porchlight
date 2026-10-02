@@ -133,6 +133,18 @@ export function useLocationPicker(container: Ref<HTMLElement | null>, initial: L
     }
   }
 
+  /**
+   * A point picked from address search: same as "Use my current location"
+   * (marker moves, map flies to street level) but with no accuracy note.
+   * The user can still drag or tap to nudge it onto the house.
+   */
+  function goTo(p: LatLng): void {
+    fixAccuracyM.value = null
+    locateError.value = null
+    setPosition(p)
+    placeMarker(p, true)
+  }
+
   /** Call when the container changes size (e.g. after a transition). */
   function resize(): void {
     map.value?.resize()
@@ -150,5 +162,6 @@ export function useLocationPicker(container: Ref<HTMLElement | null>, initial: L
     close,
     resize,
     locateMe,
+    goTo,
   }
 }

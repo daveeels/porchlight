@@ -3,7 +3,7 @@
 import { randomBytes } from 'node:crypto'
 import { auth, bucket, db, FieldValue, GeoPoint, Timestamp } from '../../../functions/src/lib/admin'
 import type { PinDoc } from '../../../functions/src/pins/model'
-import { DAY_MS, type TestUser } from './helpers'
+import { agreeToRules, DAY_MS, type TestUser } from './helpers'
 
 const ALNUM = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
 
@@ -19,10 +19,11 @@ export type AccountKind = 'google' | 'youngEmail' | 'oldEmail'
  * - google: providerData has google.com (counted at once)
  * - youngEmail: email-link style ('password' provider), created just now (not counted)
  * - oldEmail: same, created 2 days ago (counted)
+ * Agrees to the community rules unless `terms: false`.
  */
 export async function account(
   kind: AccountKind = 'google',
-  opts: { tester?: boolean; admin?: boolean } = {},
+  opts: { tester?: boolean; admin?: boolean; terms?: boolean } = {},
 ): Promise<TestUser> {
   const uid = randomUid()
   const email = `${uid.toLowerCase()}@example.com`
@@ -46,7 +47,9 @@ export async function account(
       .doc('config/testers')
       .set({ emails: FieldValue.arrayUnion(email) }, { merge: true })
   }
-  return { uid, email, admin: opts.admin ?? false }
+  const user = { uid, email, admin: opts.admin ?? false }
+  if (opts.terms ?? true) await agreeToRules(user)
+  return user
 }
 
 export const PAPAMOA_PLACE = {

@@ -1,10 +1,15 @@
 <script setup lang="ts">
 // /about — how Porchlight works, privacy policy and terms (SPEC F9, §10).
 // Public. The privacy policy URL for the Google consent screen is /about#privacy.
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { COMMUNITY_RULES, RULES_TITLE } from '@/config/terms'
 import { useAppConfigStore } from '@/stores/appConfig'
+import { useAuthStore } from '@/stores/auth'
+import { useTermsStore } from '@/stores/terms'
 import {
   IonBackButton,
+  IonButton,
   IonButtons,
   IonContent,
   IonHeader,
@@ -15,10 +20,14 @@ import {
 } from '@ionic/vue'
 
 const CONTACT_EMAIL = 'dewetellis@gmail.com'
-const LAST_UPDATED = '1 October 2026'
+const LAST_UPDATED = '2 October 2026'
 
 const route = useRoute()
 const appConfig = useAppConfigStore()
+const auth = useAuthStore()
+const terms = useTermsStore()
+
+const rulesButton = computed(() => (auth.isSignedIn && !terms.accepted ? 'Read and agree' : 'Open the community rules'))
 
 // ion-content scrolls itself (not the document), so sections are scrolled to
 // by hand, and the URL hash isn't touched (it would trigger a navigation).
@@ -47,6 +56,7 @@ onIonViewDidEnter(() => {
       <article class="about mx-auto flex max-w-2xl flex-col gap-2 pb-10">
         <nav aria-label="On this page" class="flex flex-wrap gap-x-4 text-sm">
           <a href="#how" class="link" @click.prevent="jump('how')">How it works</a>
+          <a href="#rules" class="link" @click.prevent="jump('rules')">Community rules</a>
           <a href="#privacy" class="link" @click.prevent="jump('privacy')">Privacy policy</a>
           <a href="#terms" class="link" @click.prevent="jump('terms')">Terms</a>
           <a href="#credits" class="link" @click.prevent="jump('credits')">Credits</a>
@@ -84,6 +94,17 @@ onIonViewDidEnter(() => {
             it doesn't hide it — the photo still shows the house. Only the suburb or town is shown, never the street, and
             displays never show who added them.
           </p>
+        </section>
+
+        <section id="rules" aria-labelledby="rules-h" data-testid="about-rules">
+          <h1 id="rules-h">Community rules</h1>
+          <p>{{ RULES_TITLE }}, everyone agrees to these. You'll be asked once, after you first sign in.</p>
+          <ol>
+            <li v-for="(rule, i) in COMMUNITY_RULES" :key="i">{{ rule }}</li>
+          </ol>
+          <ion-button fill="outline" class="tap mt-2" data-testid="about-rules-open" @click="terms.showRules()">
+            {{ rulesButton }}
+          </ion-button>
         </section>
 
         <section id="privacy" aria-labelledby="privacy-h">
@@ -139,6 +160,12 @@ onIonViewDidEnter(() => {
               which part of the map you're looking at. We don't send it anything else.
             </li>
             <li>
+              <strong>Address search (Photon).</strong> When you add a display, you can search for your address. What
+              you type into address search is sent to Photon, run by komoot in Germany, only to find the address. We
+              don't store what you type; only the point you choose goes on to our server (which moves it 25–50 m, as
+              above).
+            </li>
+            <li>
               <strong>Private beta.</strong> While Porchlight is in beta, we keep a list of tester email addresses on
               our server to decide who can post. It's never shown to anyone.
             </li>
@@ -188,6 +215,7 @@ onIonViewDidEnter(() => {
             owner's wishes. Locations are approximate and displays change, so we can't promise one will be there.
           </p>
           <h2>Moderation</h2>
+          <p>Before you post, edit, vote or report, you agree to the community rules above (once per version).</p>
           <p>
             We can hide or remove any display, and suspend accounts that break these guidelines or abuse the service,
             with or without notice. Displays reported by the community may be hidden while we review them.
@@ -214,6 +242,11 @@ onIonViewDidEnter(() => {
               map tiles by
               <a href="https://openfreemap.org" target="_blank" rel="noopener" class="link">OpenFreeMap</a>
               (© OpenMapTiles), drawn with MapLibre.
+            </li>
+            <li>
+              Address search by
+              <a href="https://photon.komoot.io" target="_blank" rel="noopener" class="link">Photon</a> (komoot), using
+              © OpenStreetMap contributors data.
             </li>
           </ul>
           <template v-if="appConfig.config.donateUrl">
@@ -265,9 +298,13 @@ onIonViewDidEnter(() => {
 .about p {
   margin: 0.5rem 0;
 }
-.about ul {
+.about ul,
+.about ol {
   margin: 0.5rem 0;
   padding-left: 1.25rem;
+}
+.tap {
+  min-height: 44px;
 }
 .about li {
   margin: 0.35rem 0;

@@ -18,7 +18,7 @@ Deadline mindset: build the smallest thing that meets each phase's "done when". 
 - Pinia: `useAppConfigStore`, `useSeasonStore`, `useAuthStore`, `usePinsStore`, `useMapStore` (`useAdminStore` in Phase 4).
 - **MapLibre GL JS** with **OpenFreeMap** public vector tiles (free, no key, no limits, no SLA), all map code inside the `useMap` composable. Style URLs live in config (`src/config/env.ts`, overridable via `VITE_MAP_STYLE_*`); text layers use `text-font: ['Noto Sans Regular']`. Escape hatch: self-host OpenFreeMap/Protomaps or a paid provider — only the style URLs change. No Leaflet, no Google Maps, no `tile.openstreetmap.org`.
 - Firebase: Auth (**Google** at launch; email link Phase 4; Apple Phase 6), Firestore, Storage, Cloud Functions 2nd gen (TypeScript, Node 22), Hosting, App Check. Blaze plan. **Region `us-central1` for everything.**
-- Geohash queries with `geofire-common`. Place lookup from bundled GeoNames towns (`functions/data/places.json`) plus hand-defined areas (`functions/data/areas.json`), never a geocoding API.
+- Geohash queries with `geofire-common`. Place lookup from bundled GeoNames towns (`functions/data/places.json`) plus hand-defined areas (`functions/data/areas.json`), never a geocoding API. (Address search on the add-display location step uses Photon only to position the picker — `src/services/addressSearch.ts` is its only caller; nothing it returns is stored.)
 - Tests: Vitest (unit), `@firebase/rules-unit-testing` (rules), Functions tests against the emulator.
 
 ## Golden rules
@@ -98,7 +98,7 @@ Emulators use the offline `demo-porchlight` project, so no real Firebase project
 ## Don't
 
 - Don't add a library that overlaps the stack (UI kit, map library, state manager, date library) without asking.
-- Don't use `tile.openstreetmap.org`, Google Maps, or any geocoding API for storing places.
+- Don't use `tile.openstreetmap.org`, Google Maps, or any geocoding API for storing places (Photon address search on the location step only positions the pin).
 - Don't add a map access token or a Mapbox dependency — the map is MapLibre + OpenFreeMap (no key). Change providers by changing the style URLs in config.
 - Don't use Firebase Dynamic Links or set `dynamicLinkDomain` (shut down Aug 2025).
 - Don't add a Firestore TTL policy on pins (it orphans photos and subcollections — `purgeExpiredPins` does deletion).

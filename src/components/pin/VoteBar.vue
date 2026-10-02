@@ -9,6 +9,7 @@ import { IonButton, IonIcon } from '@ionic/vue'
 import { checkmarkOutline, closeOutline, logInOutline } from 'ionicons/icons'
 import { VoteWriteError, toVoteWriteError } from '@/services/voteWrites'
 import { useAuthStore } from '@/stores/auth'
+import { useTermsStore } from '@/stores/terms'
 import { useVotesStore } from '@/stores/votes'
 import type { Pin, VoteValue } from '@/types/models'
 import ReportButton from './ReportButton.vue'
@@ -27,6 +28,7 @@ const emit = defineEmits<{ gone: [] }>()
 
 const auth = useAuthStore()
 const votes = useVotesStore()
+const terms = useTermsStore()
 const router = useRouter()
 
 const state = computed(() => votes.state(props.pin.id))
@@ -47,6 +49,8 @@ function signIn(): void {
 
 async function cast(value: VoteValue): Promise<void> {
   if (!auth.isSignedIn) return signIn()
+  // Community rules first (server-enforced); the vote goes ahead once agreed.
+  if (!(await terms.ensureAgreed())) return
   try {
     const { gone } = await votes.vote(props.pin, value)
     if (gone) {
@@ -55,6 +59,11 @@ async function cast(value: VoteValue): Promise<void> {
     }
   } catch (e) {
     const err = e instanceof VoteWriteError ? e : toVoteWriteError(e)
+    if (err.reason === 'TERMS_REQUIRED') {
+      // The rules changed since this device last checked: agree, then retry.
+      if (await terms.onTermsRequired()) await cast(value)
+      return
+    }
     void showToast(err.message, 'danger')
     if (err.reason === 'NOT_FOUND' || err.reason === 'NOT_VOTABLE') emit('gone')
     else if (err.reason === 'UNAUTHENTICATED') signIn()

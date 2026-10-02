@@ -1,9 +1,16 @@
 <script setup lang="ts">
-// Account menu entries (SPEC F6, §5 beta "Send feedback"): My display, Send
-// feedback, About & privacy, Sign out. Render inside a popover or modal and
+// Account menu entries (SPEC F6, §5 beta "Send feedback"): My display,
+// Community rules, Send feedback, About & privacy, Sign out. Render inside a popover or modal and
 // close it on `done`; or use useAccountMenu().actionSheetButtons() instead.
 import { IonIcon, IonItem, IonLabel, IonList } from '@ionic/vue'
-import { beerOutline, chatbubbleEllipsesOutline, homeOutline, informationCircleOutline, logOutOutline } from 'ionicons/icons'
+import {
+  beerOutline,
+  chatbubbleEllipsesOutline,
+  homeOutline,
+  informationCircleOutline,
+  logOutOutline,
+  shieldCheckmarkOutline,
+} from 'ionicons/icons'
 import { useAuthStore } from '@/stores/auth'
 import { useAccountMenu } from './accountMenu'
 
@@ -14,6 +21,11 @@ const menu = useAccountMenu()
 function feedback(): void {
   menu.sendFeedback()
   emit('done')
+}
+
+function rules(): void {
+  emit('done')
+  menu.showRules()
 }
 
 function signOut(): void {
@@ -27,6 +39,10 @@ function signOut(): void {
     <ion-item button :detail="false" router-link="/me" class="item" @click="emit('done')">
       <ion-icon slot="start" :icon="homeOutline" aria-hidden="true" />
       <ion-label>My display</ion-label>
+    </ion-item>
+    <ion-item button :detail="false" class="item" @click="rules">
+      <ion-icon slot="start" :icon="shieldCheckmarkOutline" aria-hidden="true" />
+      <ion-label>Community rules</ion-label>
     </ion-item>
     <ion-item button :detail="false" class="item" @click="feedback">
       <ion-icon slot="start" :icon="chatbubbleEllipsesOutline" aria-hidden="true" />

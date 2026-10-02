@@ -2,6 +2,7 @@
 // before anything else; never trust client input. Unknown keys are rejected so
 // server-only fields (status, geo, counts, …) can't be smuggled in.
 import { invalid } from './errors.js'
+import { TERMS_VERSION } from './terms.js'
 
 export const EVENT_ID_RE = /^(HALLOWEEN|CHRISTMAS)_\d{4}$/
 export const UPLOAD_ID_RE = /^[A-Za-z0-9_-]{10,40}$/
@@ -244,4 +245,17 @@ export function parseModeratePinInput(data: unknown): ModeratePinInput {
     action: oneOf(d.action, MODERATION_ACTIONS, 'Unknown moderation action.'),
     note: parseNote(d.note),
   }
+}
+
+// ---- Community rules -----------------------------------------------------
+
+export interface AcceptTermsInput {
+  version: string
+}
+
+/** Only the current rules can be agreed to (an old tab must reload first). */
+export function parseAcceptTermsInput(data: unknown): AcceptTermsInput {
+  const d = requireObject(data, ['version'])
+  if (d.version !== TERMS_VERSION) invalid('These community rules have changed. Reload Porchlight and try again.')
+  return { version: TERMS_VERSION }
 }

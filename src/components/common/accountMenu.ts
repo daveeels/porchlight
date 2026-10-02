@@ -1,16 +1,19 @@
-// Account menu actions shared by AccountMenuItems.vue (a list, e.g. inside a
-// popover) and the header's action sheet (actionSheetButtons()).
+// Account menu actions (My display, Community rules, Send feedback, About &
+// privacy, donate, Sign out) shared by AccountMenuItems.vue (a list, e.g.
+// inside a popover) and the header's action sheet (actionSheetButtons()).
 import { useRouter } from 'vue-router'
 import { toastController, type ActionSheetButton } from '@ionic/vue'
 import { env } from '@/config/env'
 import { feedbackMailto } from '@/lib/feedback'
 import { useAppConfigStore } from '@/stores/appConfig'
 import { useAuthStore } from '@/stores/auth'
+import { useTermsStore } from '@/stores/terms'
 
 export function useAccountMenu() {
   const router = useRouter()
   const auth = useAuthStore()
   const appConfig = useAppConfigStore()
+  const terms = useTermsStore()
 
   /** mailto: for "Send feedback", built when tapped so the URL is current. */
   function feedbackHref(): string {
@@ -46,10 +49,16 @@ export function useAccountMenu() {
     }
   }
 
+  /** The community rules modal: read-only once agreed (with the date), else the agree form. */
+  function showRules(): void {
+    terms.showRules()
+  }
+
   /** Buttons for actionSheetController.create({ buttons }). */
   function actionSheetButtons(): ActionSheetButton[] {
     const buttons: ActionSheetButton[] = [
       { text: 'My display', handler: () => void router.push('/me') },
+      { text: 'Community rules', handler: showRules },
       { text: 'Send feedback', handler: sendFeedback },
       { text: 'About & privacy', handler: () => void router.push('/about') },
     ]
@@ -59,5 +68,5 @@ export function useAccountMenu() {
     return buttons
   }
 
-  return { feedbackHref, sendFeedback, donateUrl, donate, signOut, actionSheetButtons }
+  return { feedbackHref, sendFeedback, donateUrl, donate, signOut, showRules, actionSheetButtons }
 }

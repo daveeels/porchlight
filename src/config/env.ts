@@ -50,4 +50,7 @@ export const env = {
       CHRISTMAS: optional('VITE_MAP_STYLE_CHRISTMAS', 'https://tiles.openfreemap.org/styles/positron'),
     },
   },
+  // Address search on the add-display location step only (Photon: no key).
+  // It positions the picker; nothing geocoded is stored (SPEC F5, §10).
+  addressSearchUrl: optional('VITE_ADDRESS_SEARCH_URL', 'https://photon.komoot.io/api/'),
 } as const

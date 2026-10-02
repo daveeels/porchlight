@@ -44,6 +44,7 @@ export const SERVER_REASONS = [
   'PHOTO_INVALID',
   'NOT_FOUND',
   'NOT_EDITABLE',
+  'TERMS_REQUIRED',
 ] as const
 export type ServerReason = (typeof SERVER_REASONS)[number]
 
@@ -63,6 +64,7 @@ export const PIN_WRITE_MESSAGES: Record<PinWriteReason, string> = {
   PHOTO_INVALID: "We couldn't use that photo. Try a different one — a JPEG or a screenshot works best.",
   NOT_FOUND: "We couldn't find your display. It may have been removed.",
   NOT_EDITABLE: "This display can't be changed any more.",
+  TERMS_REQUIRED: 'Please read and agree to the community rules first.',
   UPLOAD_FAILED: "The photo didn't upload. Check your connection and try again.",
   UNAUTHENTICATED: "You've been signed out. Sign in again to carry on.",
   NETWORK: "You're offline or the connection dropped. Check your connection and try again.",

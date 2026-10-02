@@ -1,10 +1,13 @@
 <script setup lang="ts">
-// Step 1 (SPEC F5): "Use my current location" + drag the pin on a small map.
-// The picker map lives only while this step is mounted (useLocationPicker).
+// Step 1 (SPEC F5): "Use my current location" or search an address, then
+// drag the pin on a small map. The picker map lives only while this step is
+// mounted (useLocationPicker). Address search only positions the pin.
 import { computed, onMounted, ref, watch } from 'vue'
 import { IonButton, IonIcon, IonSpinner } from '@ionic/vue'
 import { locateOutline } from 'ionicons/icons'
 import { ROUGH_FIX_M, useLocationPicker, type LatLng } from '@/composables/useLocationPicker'
+import type { AddressResult } from '@/lib/address'
+import AddressSearch from './AddressSearch.vue'
 
 const props = defineProps<{ modelValue: LatLng | null }>()
 const emit = defineEmits<{ 'update:modelValue': [value: LatLng]; next: [] }>()
@@ -36,6 +39,11 @@ const locateMessage = computed(() => {
   }
 })
 
+/** An address from search: placed like "Use my current location", no accuracy note. */
+function onAddress(r: AddressResult): void {
+  picker.goTo({ lat: r.lat, lng: r.lng })
+}
+
 const chosen = computed(() => !!props.modelValue)
 
 /** The device's fix was rough: ask for a drag to the house before moving on. */
@@ -50,7 +58,8 @@ const roughFix = computed(() => {
     <div>
       <h2 id="loc-heading" class="pl-display m-0 text-2xl">Where is your display?</h2>
       <p class="m-0 mt-1 text-sm pl-muted">
-        Stand out the front and use your location, or tap the map and drag the pin onto the house.
+        Stand out the front and use your location, or search your address. Then drag the pin onto the house if it's
+        not quite right.
       </p>
     </div>
 
@@ -59,6 +68,8 @@ const roughFix = computed(() => {
       <ion-icon v-else slot="start" :icon="locateOutline" aria-hidden="true" />
       Use my current location
     </ion-button>
+
+    <AddressSearch @select="onAddress" />
 
     <p v-if="locateMessage" class="notice m-0 rounded-lg p-3 text-sm" role="alert">{{ locateMessage }}</p>
     <p v-else-if="roughFix" class="notice m-0 rounded-lg p-3 text-sm" role="status" data-testid="rough-fix">

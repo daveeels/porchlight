@@ -57,6 +57,7 @@ export const VOTE_SERVER_REASONS = [
   'NOT_VOTABLE',
   'ALREADY_REPORTED',
   'NOT_ADMIN',
+  'TERMS_REQUIRED',
 ] as const
 export type VoteServerReason = (typeof VOTE_SERVER_REASONS)[number]
 
@@ -73,6 +74,7 @@ export const VOTE_WRITE_MESSAGES: Record<VoteWriteReason, string> = {
   NOT_VOTABLE: "This display isn't taking votes right now.",
   ALREADY_REPORTED: "You've already reported this display. Thanks, we'll take a look.",
   NOT_ADMIN: 'Only moderators can do that.',
+  TERMS_REQUIRED: 'Please read and agree to the community rules first.',
   UNAUTHENTICATED: "You've been signed out. Sign in again to vote.",
   NETWORK: "You're offline or the connection dropped. Check your connection and try again.",
   UNKNOWN: 'Something went wrong. Please try again.',

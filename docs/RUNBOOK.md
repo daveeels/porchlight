@@ -168,6 +168,15 @@ change `VITE_MAP_STYLE_*` to another provider, rebuild and redeploy hosting.
 
 **Budget alerts** at $5 and $20 email the owner (Billing → Budgets & alerts).
 
+**Community rules (SPEC F13).** Posting, editing, voting and reporting need
+`users/{uid}.termsVersion == TERMS_VERSION`. Deploy **functions and hosting
+together** whenever the enforcement or the version changes: an old client
+can't show the rules, so its writes just fail until it reloads. To change the
+rules: edit the text and bump `TERMS_VERSION` in **both** `src/config/terms.ts`
+and `functions/src/lib/terms.ts` (`npm test` fails if they differ), update the
+About page date, then deploy functions + hosting; everyone is asked to agree
+again on their next sign-in or write. Never set `termsVersion` by hand.
+
 ## App Check enforcement (Phase 3, before launch)
 
 Callables already enforce App Check in production (`enforceAppCheck`). Turn on
@@ -213,7 +222,7 @@ If a 2nd-gen function fails on its **first** deploy and is then retried, the ret
 Check every callable answers its CORS preflight:
 
 ```
-for f in createPin updatePin deletePin castVote reportPin moderatePin; do
+for f in createPin updatePin deletePin castVote reportPin moderatePin acceptTerms; do
   printf "%-12s " $f
   curl -s -o /dev/null -w "%{http_code}\n" -X OPTIONS \
     -H "Origin: https://porchlight-nz.firebaseapp.com" -H "Access-Control-Request-Method: POST" \

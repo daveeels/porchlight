@@ -20,6 +20,8 @@ export type FailReason =
   | 'NOT_VOTABLE'
   | 'ALREADY_REPORTED'
   | 'NOT_ADMIN'
+  // Community rules not agreed (or an older version): see lib/terms.ts.
+  | 'TERMS_REQUIRED'
 
 export interface FailDetails {
   reason: FailReason

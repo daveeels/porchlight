@@ -77,3 +77,36 @@ export function canEditPin(pin: Pick<DisplayPin, 'status' | 'hiddenReason'>): bo
 export function canReAdd(pin: Pick<DisplayPin, 'status' | 'removedBy' | 'hiddenReason'>): boolean {
   return pin.status === 'REMOVED' && pin.removedBy === 'OWNER' && pin.hiddenReason !== 'REPORTS'
 }
+
+/** The Explore home button (AddDisplayFab): add a display, or go to yours. */
+export interface DisplayButton {
+  /** True when the user has a live or hidden display this season. */
+  mine: boolean
+  label: 'Add my display' | 'My display'
+  /** A short status word next to "My display", e.g. "Live". */
+  hint: string | null
+  /** Hidden displays get the ember sticker. */
+  attention: boolean
+  to: '/submit' | '/me'
+}
+
+const ADD_BUTTON: DisplayButton = { mine: false, label: 'Add my display', hint: null, attention: false, to: '/submit' }
+
+/**
+ * "My display" (→ /me, where Edit and Remove live) while the user's pin this
+ * season is ACTIVE or HIDDEN; otherwise "Add my display" (→ /submit). No pin,
+ * removed or archived → add.
+ */
+export function displayButton(pin: StatusFields | null | undefined): DisplayButton {
+  if (!pin || !canChangePin(pin)) return ADD_BUTTON
+  if (pin.status === 'ACTIVE') {
+    return { mine: true, label: 'My display', hint: pin.verified ? 'Verified' : 'Live', attention: false, to: '/me' }
+  }
+  return {
+    mine: true,
+    label: 'My display',
+    hint: pin.hiddenReason === 'NOT_THERE' ? 'Hidden' : 'Under review',
+    attention: true,
+    to: '/me',
+  }
+}

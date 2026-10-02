@@ -13,6 +13,7 @@ import {
   toVoteWriteError,
 } from '@/services/voteWrites'
 import { useAuthStore } from '@/stores/auth'
+import { useTermsStore } from '@/stores/terms'
 import { useVotesStore } from '@/stores/votes'
 import type { Pin, ReportReason } from '@/types/models'
 import { showToast } from './toast'
@@ -22,6 +23,7 @@ const emit = defineEmits<{ gone: [] }>()
 
 const auth = useAuthStore()
 const votes = useVotesStore()
+const terms = useTermsStore()
 const router = useRouter()
 
 const state = computed(() => votes.state(props.pin.id))
@@ -53,14 +55,25 @@ async function report(): Promise<void> {
     return
   }
   if (reported.value || busy.value) return
+  // Community rules first (server-enforced).
+  if (!(await terms.ensureAgreed())) return
   const reason = await pickReason()
   if (!reason) return
+  await send(reason)
+}
+
+async function send(reason: ReportReason): Promise<void> {
   try {
     const { gone } = await votes.report(props.pin, reason)
     void showToast("Thanks, we'll take a look.")
     if (gone) emit('gone')
   } catch (e) {
     const err = e instanceof VoteWriteError ? e : toVoteWriteError(e)
+    if (err.reason === 'TERMS_REQUIRED') {
+      // The rules changed since this device last checked: agree, then send the same report.
+      if (await terms.onTermsRequired()) await send(reason)
+      return
+    }
     void showToast(err.message, err.reason === 'ALREADY_REPORTED' ? undefined : 'danger')
     if (err.reason === 'NOT_FOUND' || err.reason === 'NOT_VOTABLE') emit('gone')
   }

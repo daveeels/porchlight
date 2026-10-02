@@ -5,12 +5,16 @@ import type { DocumentSnapshot } from 'firebase-admin/firestore'
 import { HttpsError } from 'firebase-functions/v2/https'
 import { auth, Timestamp } from './admin.js'
 import { fail } from './errors.js'
+import { TERMS_VERSION } from './terms.js'
 
 export interface UserDoc {
   createdAt: Timestamp
   banned: boolean
   pinCreatesByEvent: Record<string, number>
   stripeCustomerId?: string
+  /** The community rules version agreed to (acceptTerms); see lib/terms.ts. */
+  termsVersion?: string
+  termsAcceptedAt?: Timestamp
 }
 
 /** What the callables need from Auth, looked up once outside the transaction. */
@@ -79,4 +83,14 @@ export function userFromSnap(snap: DocumentSnapshot, authCreatedAt: Timestamp): 
 
 export function assertNotBanned(user: UserDoc): void {
   if (user.banned) fail('BANNED', 'permission-denied', "This account can't post right now.")
+}
+
+export const TERMS_MESSAGE = 'Please read and agree to the community rules first.'
+
+/**
+ * Posting, editing, voting and reporting need the current community rules
+ * agreed (acceptTerms). Deleting your own display and moderation don't.
+ */
+export function assertTermsAccepted(user: UserDoc): void {
+  if (user.termsVersion !== TERMS_VERSION) fail('TERMS_REQUIRED', 'failed-precondition', TERMS_MESSAGE)
 }

@@ -12,7 +12,7 @@ import { requireAuth, type Caller } from '../lib/caller.js'
 import { fail } from '../lib/errors.js'
 import { deleteUpload, processUpload, type StoredPhoto } from '../lib/photo.js'
 import { takeRateLimit, type RateLimitDoc } from '../lib/rateLimit.js'
-import { assertNotBanned, lookupAuthUser, userFromSnap, type UserDoc } from '../lib/users.js'
+import { assertNotBanned, assertTermsAccepted, lookupAuthUser, userFromSnap, type UserDoc } from '../lib/users.js'
 import { parseUpdatePinInput, uploadIdOf, type UpdatePinInput } from '../lib/validation.js'
 import { pinIdFor, rankScoreOf, type PinDoc } from './model.js'
 import { discardPhoto, deleteOldPhotos, editablePin, readAll, refs, type Snaps } from './shared.js'
@@ -42,6 +42,7 @@ interface Checked {
 function check(s: Snaps, uid: string, authCreatedAt: Timestamp, now: Date): Checked {
   const { user, exists: userExists } = userFromSnap(s.user, authCreatedAt)
   assertNotBanned(user)
+  assertTermsAccepted(user)
   const rateLimit = takeRateLimit(s.rateLimit.data(), 'updatePin', now)
   const pin = editablePin(s.pin, uid)
   if (now.getTime() >= pin.expiresAt.toMillis()) {

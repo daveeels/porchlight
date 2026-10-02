@@ -1,7 +1,8 @@
 // createPin (SPEC §6). Steps, in this order:
 // 1. auth + validate input, getAuth().getUser (before any transaction), beta
-//    gate, then a read-only pre-check of the step 5 checks, so a call that
-//    would fail anyway (rate limit, existing pin, closed event) never runs sharp
+//    gate, then a read-only pre-check of the step 5 checks (incl. community
+//    rules agreed), so a call that would fail anyway (rules not agreed, rate
+//    limit, existing pin, closed event) never runs sharp
 // 2. offset the location; geohash + place from the OFFSET point; reject points
 //    outside the covered area (still before sharp)
 // 3. photo, outside any transaction (sharp → photos/{pinId}/{uploadId}/)
@@ -22,7 +23,7 @@ import { offsetPoint } from '../lib/geo.js'
 import { deleteUpload, processUpload, type StoredPhoto } from '../lib/photo.js'
 import { coveredPlace, lookupPlace, type PinPlace } from '../lib/places.js'
 import { takeRateLimit, type RateLimitDoc } from '../lib/rateLimit.js'
-import { assertNotBanned, lookupAuthUser, userFromSnap, type UserDoc } from '../lib/users.js'
+import { assertNotBanned, assertTermsAccepted, lookupAuthUser, userFromSnap, type UserDoc } from '../lib/users.js'
 import { parseCreatePinInput, uploadIdOf, type CreatePinInput } from '../lib/validation.js'
 import { pinIdFor, type HolidayEventDoc, type PinDoc } from './model.js'
 import { deleteOldPhotos, discardPhoto, readAll, refs, type Refs, type Snaps } from './shared.js'
@@ -45,6 +46,7 @@ interface Checked {
 function check(s: Snaps, eventId: string, authCreatedAt: Timestamp, now: Date): Checked {
   const { user, exists: userExists } = userFromSnap(s.user, authCreatedAt)
   assertNotBanned(user)
+  assertTermsAccepted(user)
 
   const rateLimit = takeRateLimit(s.rateLimit.data(), 'createPin', now)
 

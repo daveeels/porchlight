@@ -9,6 +9,7 @@ interface ImportMetaEnv {
   readonly VITE_RECAPTCHA_ENTERPRISE_SITE_KEY: string
   readonly VITE_MAP_STYLE_HALLOWEEN: string
   readonly VITE_MAP_STYLE_CHRISTMAS: string
+  readonly VITE_ADDRESS_SEARCH_URL: string
   readonly VITE_USE_EMULATORS: string
   readonly VITE_APP_VERSION: string
 }

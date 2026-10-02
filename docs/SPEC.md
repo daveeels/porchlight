@@ -3,7 +3,7 @@
 > **Porchlight** (working name) — *"Find the houses worth the drive."* Find and share decorated houses for Halloween and Christmas.
 > Launch area: **Tauranga & Western Bay of Plenty, New Zealand** (Tauranga, Mount Maunganui, Pāpāmoa, Te Puke, The Lakes, Bethlehem, Welcome Bay, Ōmokoroa…).
 > This is the source of truth for **what** to build. `CLAUDE.md` holds the **how** (rules and conventions).
-> Last revised: 2026-10-01. **Launch target: Halloween 2026 — live by Sat Oct 17.**
+> Last revised: 2026-10-02. **Launch target: Halloween 2026 — live by Sat Oct 17.**
 
 ---
 
@@ -45,7 +45,7 @@ People search for an area or suburb (or tap "Near me") and see decorated houses 
 | State | Pinia | `useAppConfigStore`, `useSeasonStore`, `useAuthStore`, `usePinsStore`, `useMapStore` (+ `useAdminStore` later) |
 | Map | **MapLibre GL JS** + **OpenFreeMap** public vector tiles | Free, no API key, no usage limits — but no SLA. Styles: OpenFreeMap `dark` (Halloween), `positron` (Christmas, Phase 4); style URLs live in config (`VITE_MAP_STYLE_HALLOWEEN` / `VITE_MAP_STYLE_CHRISTMAS`, defaults in `src/config/env.ts`). Text layers must use `text-font: ['Noto Sans Regular']` (the only fontstack OpenFreeMap's glyph server has). Built-in GeoJSON clustering. Keep the OSM / OpenMapTiles attribution visible. **No Leaflet, never `tile.openstreetmap.org`.** Escape hatch if OpenFreeMap is down or slow: self-host OpenFreeMap or Protomaps, or switch to a paid MapLibre-compatible provider — only the style URLs change. Keep all map code inside `useMap`. |
 | Geo queries | Geohash via `geofire-common` | Firestore Standard edition |
-| Place lookup | GeoNames dataset + hand-defined launch areas, bundled in Functions | Free, storable. No geocoding API (commercial geocoders' terms don't allow storing results). |
+| Place lookup | GeoNames dataset + hand-defined launch areas, bundled in Functions | Free, storable. No geocoding API for stored places (commercial geocoders' terms don't allow storing results). The F5 address search (Photon) only positions the location picker; nothing it returns is stored. |
 | Auth | Firebase Auth — **Google** (Halloween launch), + **Email link** (Phase 3, F11 — brought forward), + **Sign in with Apple** (Phase 6, required by Apple once Google is offered on iOS) | No passwords |
 | Database | Cloud Firestore | Clients read, **never write** (§6) |
 | Files | Cloud Storage for Firebase | |
@@ -180,10 +180,14 @@ Switching season calls `map.setStyle()` on the **existing** map. On `style.load`
 
 **F5. Add my display** (signed in)
 Flow: location → photo → details → preview → submit → success.
-- **Location:** "Use my current location" + drag the pin on a small map to adjust. This picker map is the **only** other map instance allowed; create it when the step opens, remove it when it closes. No address search. Show: "Your pin will be shown about 25–50 m from where you place it."
+- **Location:** "Use my current location" **or address search**, then drag/tap the pin on a small map to adjust. This picker map is the **only** other map instance allowed; create it when the step opens, remove it when it closes. Show: "Your pin will be shown about 25–50 m from where you place it."
+  - **Address search** (above the map): [Photon](https://photon.komoot.io) by komoot — free, no key. Typing 3+ characters (debounced 400 ms; a newer query aborts the older request) asks `photon.komoot.io/api/?q=…&limit=6&lang=en&bbox=166.0,-47.6,179.0,-34.0` (New Zealand) biased to `config/app.launchCenter` (`lat`/`lon`), and lists up to 6 results as "house number + street, suburb, city". Picking one moves the pin exactly like "Use my current location" (marker + fly to street level) and clears the rough-fix accuracy note; the user can still drag or tap to nudge it. Friendly copy for no results, offline and errors (all point back to "Use my current location" / dragging). Small attribution under the box: "Address search: Photon / © OpenStreetMap contributors". The URL lives in `src/config/env.ts` (`VITE_ADDRESS_SEARCH_URL`); `src/services/addressSearch.ts` is the only code that calls it.
+  - **This is client-side positioning, not storing geocoded places.** What the user types goes to Photon and nowhere else (no logging, no storage, sent without cookies or referrer); only the point the user ends up choosing continues into `createPin`, which offsets it as always. Pin places still come from GeoNames (§5), so "no geocoding API for storing places" still holds. The privacy policy names Photon (§10).
+  - Small phones: the step scrolls with the search box and map; "Next: photo" stays pinned at the bottom (sticky bar), and the map keeps its height clamp (`clamp(190px, 34vh, 340px)`).
 - **Photo:** required. The client decodes, resizes (long edge ≤ 1600 px, `createImageBitmap(file, { imageOrientation: 'from-image' })`) and re-encodes to **JPEG** before upload. Accept JPEG/PNG/WebP. HEIC only where the browser can decode it (iOS Safari usually hands over a JPEG). If decoding fails: "This photo format isn't supported — try a screenshot or JPEG." Max 10 MB after re-encode.
 - **Details:** title 3–60 chars (required), description 0–500 chars (optional). Plain text. Tip: "Don't include your house number or car plates."
 - **Consent:** required checkbox "This is my house, or I have the owner's permission to share it."
+- **Community rules** (F13) must be agreed before submitting; if they aren't, the rules open first and the display is sent once agreed.
 - **Errors:** already have a pin this season (link to My Pin), submissions closed, rate limited, upload failed.
 - New pins go live immediately as **Unverified**.
 
@@ -207,8 +211,23 @@ Flow: location → photo → details → preview → submit → success.
 - After reporting: "Thanks, we'll take a look."
 
 **F9. About / legal** (required for Google sign-in consent screen too)
-- How it works, how verification works, privacy (offset, photo cleaning, auto-expiry), community guidelines (what counts as a display), terms, privacy policy, contact email for takedown requests.
+- How it works, how verification works, community rules (F13, with a button to open/agree to them), privacy (offset, photo cleaning, auto-expiry, third parties incl. Photon address search), community guidelines (what counts as a display), terms, privacy policy, contact email for takedown requests.
 - **Support Porchlight:** "Buy a bad decision 🍻" → `config/app.donateUrl` (Ko-fi, https://ko-fi.com/dewetellis). Also in the account menu, and as a quiet line at the end of results lists: *"Porchlight is free and made by a local. Like it? Buy De Wet a bad decision 🍻"*. A null `donateUrl` hides all three. Donations happen on Ko-fi's site (stated in the privacy section).
+
+**F13. Community rules (agreed once, server-enforced)**
+- A short list titled **"Before you post or vote"** (exact text in `src/config/terms.ts`):
+  1. Only share real decorated displays: your own house, or one you have the owner's OK to share.
+  2. Keep photos free of house numbers, number plates and people's faces.
+  3. Pins are shown about 25–50 m away, but your photo may still show which house it is.
+  4. Vote honestly. Reports are for problems, not grudges. We can remove displays or accounts that break these rules.
+  5. When visiting, respect people's homes: stay on the footpath, keep noise down, and follow the road rules.
+  6. Porchlight is free, run by a local, and provided as-is.
+
+  Plus a link "Full terms and privacy policy" → `/about#terms`.
+- **Versioned:** `TERMS_VERSION` (`'2026-10-02'`) lives in `src/config/terms.ts` and `functions/src/lib/terms.ts`, kept equal by a unit test. Changing the rules = bump both; everyone is asked again.
+- **When it shows:** a modal (`IonModal`, full screen on phones — not a bottom sheet) right after sign-in when `users/{uid}.termsVersion` is missing or old (the client reads its own users doc), once per session. A required checkbox "I've read and agree to the community rules" enables **I agree** → `acceptTerms` → close. **Not now** closes it: browsing still works; posting, editing, voting and reporting open it again first, and the action goes ahead once agreed (also when the server answers `TERMS_REQUIRED`).
+- **Easy to find again:** "Community rules" in the account menu opens the same modal read-only ("You agreed on <date>"); the About page has a Community rules section.
+- **Server:** `acceptTerms` writes `termsVersion` + `termsAcceptedAt`; `createPin`, `updatePin`, `castVote` and `reportPin` reject with `TERMS_REQUIRED` until the current version is agreed (§6). `deletePin` and `moderatePin` don't need it.
 
 **F10. Installable (the preferred way to use Porchlight)**
 - Web app manifest + icons (name "Porchlight", standalone display, season theme colour) so it installs to the home screen. A full offline service worker comes in Phase 4.
@@ -246,7 +265,7 @@ Flow: location → photo → details → preview → submit → success.
 
 ### Out of scope (don't build unless asked)
 
-Other holidays (config makes them easy later), passwords, Facebook Login (deferred, §11 #9), multiple photos, comments/chat, push notifications, offline pins, translations, public user profiles, analytics dashboards, address search/geocoding.
+Other holidays (config makes them easy later), passwords, Facebook Login (deferred, §11 #9), multiple photos, comments/chat, push notifications, offline pins, translations, public user profiles, analytics dashboards, geocoding anything we store (F5's address search only positions the picker), address search anywhere but the F5 location step.
 
 ---
 
@@ -375,12 +394,17 @@ Photos are written with `Cache-Control: public, max-age=31536000, immutable`. Ea
 
 ### `users/{uid}` — owner can read, server writes
 ```ts
-{ createdAt: Timestamp; banned: boolean; pinCreatesByEvent: Record<string, number>; stripeCustomerId?: string }
+{
+  createdAt: Timestamp; banned: boolean; pinCreatesByEvent: Record<string, number>; stripeCustomerId?: string;
+  termsVersion?: string;        // community rules version agreed (F13), e.g. '2026-10-02'; set by acceptTerms
+  termsAcceptedAt?: Timestamp;  // when that version was agreed (server time); kept if agreed again
+}
 ```
 No email here — Firebase Auth holds it.
 - **Created lazily.** Any callable creates `users/{uid}` inside its transaction if missing (`banned: false`, `pinCreatesByEvent: {}`, `createdAt` = Auth `metadata.creationTime`). There is no auth trigger (2nd-gen Functions don't have a non-blocking one).
 - **Counted vote/report** = `getAuth().getUser(uid)`: `providerData` includes `google.com`, *or* `metadata.creationTime` ≥ 24 h ago.
 - **Call `getAuth().getUser(uid)` once, before the transaction**, in every callable that needs it. Pass `countedIfNew` and `authCreatedAt` into the transaction. Never call Auth inside a transaction (it retries).
+- **Community rules:** `createPin`, `updatePin`, `castVote` and `reportPin` require `termsVersion == TERMS_VERSION` (checked after `banned`, in the read-only pre-check and again in the transaction) → otherwise `failed-precondition`, reason `TERMS_REQUIRED`, "Please read and agree to the community rules first." The client reads its own doc to know whether to show the rules.
 - **Ban** = set `banned: true`, `getAuth().updateUser(uid, { disabled: true })`, `revokeRefreshTokens(uid)`, set the user's pins to REMOVED with `removedBy: 'ADMIN'`.
 
 ### `rateLimits/{uid}` — server only
@@ -477,6 +501,7 @@ rateLimits:            no client access
 | `castVote` | callable | 3 | See below |
 | `reportPin` | callable | 3 | See below |
 | `moderatePin` | callable | 3 | Admin only. Actions below. Always appends to `moderationActions`. |
+| `acceptTerms` | callable | 3 | `{ version }` must equal `TERMS_VERSION` (else `INVALID_INPUT`). Auth required; `getAuth().getUser` before the transaction; not banned. Writes `users/{uid}.termsVersion` + `termsAcceptedAt` (server `Timestamp`), creating the doc lazily. Idempotent (agreeing again keeps the first date). No beta gate, no rate limit. |
 | `rebuildPlaceIndex` | scheduled, daily 02:00 UTC | 3 | Recount ACTIVE pins per town for active events, overwrite `placeIndex/{eventId}`. |
 | `archiveExpiredPins` | scheduled, daily 00:30 UTC | **by Nov 7** | ACTIVE/HIDDEN pins with `expiresAt <= now` → ARCHIVED, batches of 500. |
 | `purgeExpiredPins` | scheduled, daily 01:00 UTC | 4 | Pins with `purgeAt <= now`: `bucket.deleteFiles({ prefix: 'photos/' + pinId + '/' })`, then `firestore.recursiveDelete(pinRef)`. |
@@ -493,6 +518,7 @@ rateLimits:            no client access
 - `title` 3–60, `description` 0–500 after trimming. Reject control characters and invisible format characters (Unicode `Cf`: zero-width spaces, bidi overrides, soft hyphens — only the zero-width joiner is allowed, for emoji), then URLs and words on a basic profanity list (checked with format characters stripped, so `evil\u200b.com` is caught).
 - If input validation fails after auth, the caller's upload (if the `uploadId` itself is well-formed) is still deleted.
 - `consentOwnerOrPermission` must be `true` (createPin).
+- `version` (acceptTerms) must equal `TERMS_VERSION`.
 - Any key the callable doesn't expect (location on `updatePin`, server-only fields) → `INVALID_INPUT`.
 
 **Transactions:** read everything first, then write. Never run `sharp`, `getAuth()` calls or other slow work inside a transaction (they retry). Counters are updated from values read in the same transaction (e.g. `pin.hereVotes + 1`); Firestore re-runs the transaction with fresh reads on conflict, so this stays correct.
@@ -504,6 +530,7 @@ rateLimits:            no client access
 4. Re-create over a REMOVED pin: `recursiveDelete` its old `votes` and `reports` subcollections and old photos (skip if the pin is blocked by the checks below).
 5. **One transaction.** Read: `users/{uid}` (create lazily), `rateLimits/{uid}`, `events/{eventId}`, `pins/{uid}_{eventId}`. Check:
    - not banned
+   - community rules agreed: `termsVersion == TERMS_VERSION` (`failed-precondition`, `TERMS_REQUIRED`)
    - `createPin` < 3 today (`resource-exhausted`)
    - event `isActive` and `submissionsOpenAt <= now < expiresAt` (`failed-precondition`: "Submissions closed")
    - existing pin not ACTIVE/HIDDEN (`already-exists`)
@@ -515,7 +542,7 @@ rateLimits:            no client access
 6. After commit: best-effort `placeIndex` increment (§5). If the transaction failed, delete the photos from step 2. Always delete the upload at the end.
 
 **`updatePin(input: { eventId, title?, description?, uploadId? })`**
-- Owner only. Status ACTIVE or HIDDEN. Reject if `now >= expiresAt`. `updatePin` < 10 today. Not while `hiddenReason == 'REPORTS'` (`NOT_EDITABLE`, "under review"): the reported title, description and photo stay as they are until a moderator decides. These checks also run read-only before the photo is processed (as in `createPin` step 1), and again in the transaction.
+- Owner only. Not banned; community rules agreed (`TERMS_REQUIRED`). Status ACTIVE or HIDDEN. Reject if `now >= expiresAt`. `updatePin` < 10 today. Not while `hiddenReason == 'REPORTS'` (`NOT_EDITABLE`, "under review"): the reported title, description and photo stay as they are until a moderator decides. These checks also run read-only before the photo is processed (as in `createPin` step 1), and again in the transaction.
 - New `uploadId` → same photo step as create (new versioned path); delete old photos after the write succeeds.
 - **Any change resets `moderation.decision` to `'NONE'`** (stops approve-then-swap).
 - **A photo change starts a new vote round**, in the same transaction as the pin write: `voteRound + 1`, `hereVotes = notThereVotes = 0`, `verified = false`, `rankScore = isFeatured ? 100000 : 0`. People verified the old photo, not the new one. Afterwards, delete the votes whose `round` is older than the new round, as cleanup only (a vote cast right after the edit is kept) — correctness comes from the round number, so a vote cast mid-edit can't be counted twice. Title/description edits keep votes.
@@ -524,7 +551,7 @@ rateLimits:            no client access
 **`castVote(input: { pinId, value: 'HERE' | 'NOT_THERE' })`**
 1. Before the transaction: `getAuth().getUser(uid)` → `countedIfNew` (Google provider or account ≥ 24 h), `authCreatedAt`.
 2. Transaction — read `users/{uid}`, `rateLimits/{uid}`, the pin, `votes/{uid}`. An existing vote whose `round != pin.voteRound` is treated as no vote.
-3. Check: not banned, `castVote` < 40 today, pin ACTIVE, caller isn't the owner. Same value as the current-round vote → no-op.
+3. Check: not banned, community rules agreed (`TERMS_REQUIRED`), `castVote` < 40 today, pin ACTIVE, caller isn't the owner. Same value as the current-round vote → no-op.
 4. `counted` = the current-round vote's `counted` if changing, else `countedIfNew`.
 5. If counted: remove the old value from its counter (if any), add the new one.
 6. Recompute `verified`, `rankScore`. If the "not there" rule in F7 is met → status HIDDEN, `hiddenReason: 'NOT_THERE'`.
@@ -533,7 +560,7 @@ rateLimits:            no client access
 **`reportPin(input: { pinId, reason })`**
 1. Before the transaction: `getAuth().getUser(uid)` → `countedIfNew`, `authCreatedAt`.
 2. Transaction — read `users/{uid}`, `rateLimits/{uid}`, the pin, `reports/{uid}`.
-3. Check: not banned, `reportPin` < 20 today, pin ACTIVE, not owner, no existing report. `counted = countedIfNew`. If counted: `reportsCount + 1`.
+3. Check: not banned, community rules agreed (`TERMS_REQUIRED`), `reportPin` < 20 today, pin ACTIVE, not owner, no existing report. `counted = countedIfNew`. If counted: `reportsCount + 1`.
 4. If `reportsCount >= threshold` (3, or 8 when `moderation.decision == 'APPROVED'`) → HIDDEN, `hiddenReason: 'REPORTS'`.
 5. Write the report doc, pin, rate limit.
 
@@ -554,6 +581,7 @@ Each action sets `moderation.decision`, `reviewedBy`, `reviewedAt` on the pin; t
 |---|---|
 | Anonymous = read only | Rules: `write: false` everywhere; callables require `auth` |
 | Private beta: only testers write | `config/testers` check in every write callable except `deletePin` while `launchMode == 'BETA'` |
+| Community rules agreed before posting / editing / voting / reporting | `users/{uid}.termsVersion == TERMS_VERSION` in `createPin`, `updatePin`, `castVote`, `reportPin` (`TERMS_REQUIRED`); written only by `acceptTerms` |
 | One pin per user per event | Fixed doc ID + transaction in `createPin` |
 | Max 3 creates per event; admin-removed stays removed | `createPin` transaction |
 | Rate limits (create 3, update 10, vote 40, report 20 per day) | `rateLimits/{uid}` in each callable |
@@ -721,7 +749,7 @@ Budget is close to zero. Expected cost for a one-town Halloween launch: **about 
 - **No public profiles.** Pins never show who posted them. Emails live only in Firebase Auth.
 - **Town only**, never street, is derived and stored.
 - **Data retention:** pins and photos deleted ~13 months after the event. An owner's delete hides the pin and deletes its photo at once (a reported pin's photo is kept for the moderator); the rest of the pin doc stays, hidden, until the purge, to enforce per-season limits. The privacy policy says exactly this.
-- **Third parties:** map tiles load straight from OpenFreeMap, which sees the viewer's IP and the map area (including the area around a house in the location picker). The privacy policy names it. The beta tester email list lives only in `config/testers` (server-read).
+- **Third parties:** map tiles load straight from OpenFreeMap, which sees the viewer's IP and the map area (including the area around a house in the location picker). The privacy policy names it. **Address search** (F5) sends what the user types to Photon (run by komoot, Germany) only to find the address — no cookies or referrer, nothing stored by us; only the chosen point goes on to `createPin`. The privacy policy names it too. The beta tester email list lives only in `config/testers` (server-read).
 - **Law:** NZ **Privacy Act 2020** (Information Privacy Principles; notifiable privacy breaches go to the Privacy Commissioner). The privacy policy must say what's collected (Google account email, approximate location, photos), why, where it's stored (Google Cloud, USA), how long (~13 months), and how to ask for access or deletion.
 - **Halloween and kids:** don't show who submitted a pin; set a minimum age in the terms.
 

@@ -1,6 +1,6 @@
 // Entry point: one export per Cloud Function (SPEC §6). Each callable is a
 // thin wrapper; the logic lives in src/pins/*.ts, src/votes/*.ts,
-// src/moderation/*.ts, src/scheduled/*.ts and src/lib/*.ts.
+// src/moderation/*.ts, src/users/*.ts, src/scheduled/*.ts and src/lib/*.ts.
 import { logger, setGlobalOptions } from 'firebase-functions/v2'
 import { onCall, type CallableOptions } from 'firebase-functions/v2/https'
 import { onSchedule, type ScheduleOptions } from 'firebase-functions/v2/scheduler'
@@ -13,6 +13,7 @@ import { updatePin as updatePinImpl } from './pins/updatePin.js'
 import { archiveExpiredPins as archiveExpiredPinsImpl } from './scheduled/archiveExpiredPins.js'
 import { rebuildPlaceIndex as rebuildPlaceIndexImpl } from './scheduled/rebuildPlaceIndex.js'
 import { castVote as castVoteImpl } from './votes/castVote.js'
+import { acceptTerms as acceptTermsImpl } from './users/acceptTerms.js'
 import { reportPin as reportPinImpl } from './votes/reportPin.js'
 
 setGlobalOptions({ region: 'us-central1', minInstances: 0 })
@@ -39,6 +40,9 @@ export const castVote = onCall(callable, (req) => castVoteImpl(callerOf(req), re
 export const reportPin = onCall(callable, (req) => reportPinImpl(callerOf(req), req.data))
 
 export const moderatePin = onCall(callable, (req) => moderatePinImpl(callerOf(req), req.data))
+
+// Community rules: required before createPin / updatePin / castVote / reportPin.
+export const acceptTerms = onCall(callable, (req) => acceptTermsImpl(callerOf(req), req.data))
 
 // Scheduled jobs (UTC).
 const scheduled = (schedule: string): ScheduleOptions => ({
