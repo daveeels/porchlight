@@ -109,8 +109,12 @@ describe('ResultsList', () => {
 
     expect(cardIds(wrapper)).toEqual(['v1', 'u1'])
     const text = allText(wrapper)
-    expect(text).toContain('✓ Verified')
-    expect(text).toContain('Unverified')
+    // Stickers: "✓ <votes>" when verified, "NEW" when not; the words behind them for screen readers.
+    expect(wrapper.findAll('.sticker').map((s) => s.text())).toEqual(['✓ 5', 'NEW'])
+    expect(wrapper.findAll('[data-testid="card-status"]').map((s) => s.text())).toEqual([
+      "Verified · 5 say it's here",
+      "Unverified · 1 says it's here",
+    ])
     expect(text).toContain("5 say it's here")
     expect(text).toContain("1 says it's here")
     expect(text).toContain('Load more')
@@ -192,7 +196,7 @@ describe('PlaceSearch', () => {
     await usePinsStore().loadPlaceIndex()
     const wrapper = mountSearch()
     await flushPromises()
-    const chips = wrapper.findAll('nav[aria-label="Popular places"] ion-chip')
+    const chips = wrapper.findAll('nav[aria-label="Popular places"] button')
     expect(chips.map((c) => allText(c).trim())).toEqual(['Tauranga & surrounds', 'Pāpāmoa Beach', 'Te Puke'])
     await chips[1]!.trigger('click')
     expect(wrapper.emitted('select')?.[0]?.[0]).toMatchObject({ kind: 'town', key: 'papamoa-beach' })
@@ -229,21 +233,26 @@ describe('PlaceSearch', () => {
 })
 
 describe('TownChips', () => {
-  it('chips are focusable and select on Enter and Space', async () => {
+  it('chips are native buttons (focusable, Enter/Space) with aria-pressed, and select on tap', async () => {
     mockPlaceIndex.mockResolvedValueOnce(INDEX)
     await usePinsStore().loadPlaceIndex()
     const wrapper = mount(TownChips, {
       props: { areaKey: 'tauranga', townKey: null },
       global: { plugins: [IonicVue, pinia] },
     })
-    const chips = wrapper.findAll('ion-chip')
+    const chips = wrapper.findAll('nav[aria-label="Towns"] > *')
     expect(chips).toHaveLength(3)
-    for (const c of chips) expect(c.attributes('tabindex')).toBe('0')
+    // Native <button>s: the browser makes them focusable and fires click on Enter and Space.
+    for (const c of chips) {
+      expect(c.element.tagName).toBe('BUTTON')
+      expect(c.attributes('type')).toBe('button')
+      expect(c.attributes('tabindex') ?? '0').toBe('0')
+    }
     expect(chips[0]!.attributes('aria-pressed')).toBe('true')
     expect(chips[1]!.attributes('aria-pressed')).toBe('false')
 
-    await chips[1]!.trigger('keydown', { key: 'Enter' })
-    await chips[0]!.trigger('keydown', { key: ' ' })
+    await chips[1]!.trigger('click')
+    await chips[0]!.trigger('click')
     expect(wrapper.emitted('select')).toEqual([
       [{ kind: 'town', key: 'papamoa-beach' }],
       [{ kind: 'area', key: 'tauranga' }],

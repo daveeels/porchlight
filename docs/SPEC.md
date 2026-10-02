@@ -156,7 +156,7 @@ Switching season calls `map.setStyle()` on the **existing** map. On `style.load`
 - Map attribution (OpenFreeMap © OpenMapTiles, © OpenStreetMap) stays visible; MapLibre's compact attribution button on narrow screens is fine.
 - Tapping a pin opens the detail sheet (F3).
 
-**F3. Pin detail sheet** — `IonModal`, breakpoints `[0, 0.4, 0.9]`
+**F3. Pin detail sheet** — `IonModal`, breakpoints `[0, 0.75, 0.95]` (opens at 0.75 so the photo, title and vote buttons are visible together)
 - Photo, title, description, town, ✓ Verified / Unverified, counts ("12 people say it's here").
 - "Open in Maps" link (to the offset location). Note: "Location is approximate."
 - Signed in: **It's here ✓**, **Not there ✗** under a visible "Did you see it?", **Report** (reason picker). Shows the user's current vote.

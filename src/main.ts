@@ -11,6 +11,13 @@ import { recoverFromStaleChunk } from '@/lib/staleChunk'
 import { useAuthStore } from '@/stores/auth'
 import { SEASON_STORAGE_KEY, useSeasonStore } from '@/stores/season'
 import { SEASONS, type Season } from '@/types/models'
+// Self-hosted fonts (no Google Fonts: privacy, and the installed app works
+// offline). Each file has unicode-range subsets; browsers fetch only the
+// ones a page uses (Latin, plus Latin Extended for macrons like ā, ō).
+import '@fontsource/lilita-one/400.css'
+import '@fontsource/nunito/500.css'
+import '@fontsource/nunito/700.css'
+import '@fontsource/nunito/800.css'
 import './theme/tailwind.css'
 
 /** First paint: theme from the saved or by-date season before mount, so the

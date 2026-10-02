@@ -38,7 +38,7 @@ function next(): void {
 
 <template>
   <section class="flex flex-col gap-3" aria-labelledby="details-heading">
-    <h2 id="details-heading" class="m-0 text-lg font-semibold">About your display</h2>
+    <h2 id="details-heading" class="pl-display m-0 text-2xl">About your display</h2>
 
     <ion-input
       :value="title"

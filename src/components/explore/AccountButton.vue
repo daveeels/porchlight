@@ -34,8 +34,9 @@ async function openMenu(): Promise<void> {
 
 <template>
   <template v-if="auth.ready">
-    <!-- Clear, not solid: a solid primary block is too heavy in the iOS header. -->
-    <ion-button v-if="!auth.isSignedIn" router-link="/sign-in" fill="clear" color="primary" class="tap sign-in">
+    <!-- A clear (light) button drawn as a cream pill: easy to spot, lighter
+         than a solid primary block. The 44 px tap target is the host. -->
+    <ion-button v-if="!auth.isSignedIn" router-link="/sign-in" fill="clear" class="tap sign-in">
       Sign in
     </ion-button>
     <ion-button v-else fill="clear" class="tap" aria-label="Account" @click="openMenu">
@@ -53,7 +54,21 @@ async function openMenu(): Promise<void> {
   min-width: 44px;
 }
 .sign-in {
-  font-weight: 600;
+  --color: var(--pl-on-primary);
+  --background-hover: var(--pl-on-primary);
+  --background-hover-opacity: 0.08;
+  --padding-start: 0;
+  --padding-end: 0;
+  font-weight: 800;
+  font-size: 0.875rem;
+}
+.sign-in::part(native) {
+  height: 34px;
+  min-height: 0;
+  margin-block: 5px;
+  padding-inline: 14px;
+  border-radius: 999px;
+  background: var(--pl-cream);
 }
 .avatar {
   width: 32px;

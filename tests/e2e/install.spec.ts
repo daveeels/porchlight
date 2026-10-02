@@ -244,8 +244,8 @@ test.describe('production build installability', () => {
       start_url: '/',
       scope: '/',
       display: 'standalone',
-      background_color: '#1a1025',
-      theme_color: '#1a1025',
+      background_color: '#17120f',
+      theme_color: '#17120f',
     })
     const sizes = manifest.icons.map((i) => `${i.sizes}:${i.purpose ?? 'any'}`)
     expect(sizes).toEqual(expect.arrayContaining(['192x192:any', '512x512:any', '512x512:maskable']))

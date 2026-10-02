@@ -130,8 +130,8 @@ onMounted(() => {
         </state-message>
 
         <template v-else-if="phase === 'need-email'">
-          <h1 class="m-0 text-2xl font-bold">Confirm your email</h1>
-          <p class="m-0 opacity-85">
+          <h1 class="pl-display m-0 text-3xl">Confirm your email</h1>
+          <p class="m-0 pl-muted">
             It looks like you opened the link on a different phone or browser. Enter the email address you
             asked for the link with.
           </p>

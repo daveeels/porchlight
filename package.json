@@ -27,6 +27,8 @@
     "moderate": "tsx scripts/moderate.ts"
   },
   "dependencies": {
+    "@fontsource/lilita-one": "^5.3.0",
+    "@fontsource/nunito": "^5.3.0",
     "@ionic/vue": "^9.0.6",
     "@ionic/vue-router": "^9.0.6",
     "firebase": "^12.19.0",

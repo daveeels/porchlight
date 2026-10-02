@@ -15,7 +15,6 @@ import {
   IonSegment,
   IonSegmentButton,
   IonSpinner,
-  IonTitle,
   IonToggle,
   IonToolbar,
   onIonViewDidEnter,
@@ -36,6 +35,7 @@ import StateMessage from '@/components/common/StateMessage.vue'
 import InstallPrompt from '@/components/install/InstallPrompt.vue'
 import PinDetailSheet from '@/components/pin/PinDetailSheet.vue'
 import { AREAS } from '@/config/areas'
+import { SEASON_THEMES } from '@/config/seasons'
 import type { PlaceResult } from '@/lib/search'
 import { useAppConfigStore } from '@/stores/appConfig'
 import { usePinsStore } from '@/stores/pins'
@@ -190,6 +190,20 @@ const placeContext = computed(() => {
   return t.areaKey ? areaName(t.areaKey) : t.region
 })
 
+/** "46 spooky houses", from the placeIndex count (as in the search dropdown). */
+const countLine = computed(() => {
+  const sel = pins.selection
+  const index = pins.placeIndex
+  if (!sel || sel.kind === 'nearMe' || !index || !season.season) return null
+  const n = sel.kind === 'area' ? index.areas[sel.key]?.count : index.towns[sel.key]?.count
+  if (!n || n < 1) return null
+  const [one, other] = SEASON_THEMES[season.season].houses
+  return `${n} ${n === 1 ? one : other}`
+})
+
+/** Under the place heading: "Tauranga & surrounds · 5 spooky houses". */
+const subLine = computed(() => [placeContext.value, countLine.value].filter(Boolean).join(' · '))
+
 /** The area whose town chips to show (the area itself, or the town's area). */
 const chipsAreaKey = computed<string | null>(() => {
   const sel = pins.selection
@@ -218,14 +232,17 @@ const nearMeMessage = computed(() => {
 <template>
   <ion-page>
     <ion-header>
-      <ion-toolbar>
-        <ion-title>Porchlight<BetaBadge /></ion-title>
+      <ion-toolbar class="brand-bar">
+        <div slot="start" class="brand">
+          <span class="wordmark pl-display">Porchlight</span>
+          <BetaBadge />
+        </div>
         <ion-buttons slot="end">
           <AccountButton />
         </ion-buttons>
       </ion-toolbar>
-      <ion-toolbar v-if="season.eventId">
-        <ion-segment :value="segment" aria-label="View" @ion-change="onSegment">
+      <ion-toolbar v-if="season.eventId" class="segment-bar">
+        <ion-segment :value="segment" aria-label="View" class="view-segment" @ion-change="onSegment">
           <ion-segment-button value="list" class="seg">
             <ion-label>List</ion-label>
           </ion-segment-button>
@@ -258,27 +275,27 @@ const nearMeMessage = computed(() => {
         <div v-show="segment === 'list'" class="mx-auto max-w-2xl pb-24">
           <PlaceSearch :show-popular="!showsTownChips" @select="onSearchSelect" />
 
-          <div class="flex items-center justify-between gap-2 px-3 pb-2">
-            <ion-button fill="outline" class="tap m-0" :disabled="locating" @click="nearMe">
+          <div class="flex items-center justify-between gap-2 px-4 pb-2">
+            <ion-button fill="outline" class="tap near-me m-0" :disabled="locating" @click="nearMe">
               <ion-spinner v-if="locating" slot="start" name="crescent" />
               <ion-icon v-else slot="start" :icon="locateOutline" aria-hidden="true" />
               Near me
             </ion-button>
-            <ion-toggle v-model="pins.verifiedOnly" label-placement="start" class="toggle">
+            <ion-toggle v-model="pins.verifiedOnly" label-placement="start" class="toggle font-bold">
               Verified only
             </ion-toggle>
           </div>
 
-          <div v-if="nearMeMessage" class="notice mx-3 mb-2 flex items-start gap-2 rounded-lg p-3 text-sm" role="alert">
+          <div v-if="nearMeMessage" class="notice mx-4 mb-2 flex items-start gap-2 rounded-xl p-3 text-sm" role="alert">
             <span class="flex-1">{{ nearMeMessage }}</span>
             <ion-button fill="clear" size="small" class="close" aria-label="Dismiss" @click="nearMeError = null">
               <ion-icon slot="icon-only" :icon="closeOutline" />
             </ion-button>
           </div>
 
-          <header v-if="pins.selection" class="px-4 pt-1 pb-2">
-            <h1 class="m-0 text-xl font-bold">{{ placeName }}</h1>
-            <p v-if="placeContext" class="m-0 mt-0.5 text-sm opacity-80">{{ placeContext }}</p>
+          <header v-if="pins.selection" class="px-4 pt-2 pb-1">
+            <h1 class="place-heading pl-display m-0">{{ placeName }}</h1>
+            <p v-if="subLine" class="pl-muted m-0 mt-0.5 text-sm font-bold">{{ subLine }}</p>
           </header>
 
           <TownChips v-if="chipsAreaKey" :area-key="chipsAreaKey" :town-key="chipsTownKey" @select="goPlace" />
@@ -309,8 +326,79 @@ const nearMeMessage = computed(() => {
 </template>
 
 <style scoped>
+.brand-bar {
+  --padding-start: 16px;
+  --padding-end: 8px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.wordmark {
+  font-size: 1.75rem;
+  line-height: 1;
+  color: var(--ion-color-primary);
+  text-shadow:
+    0 0 14px var(--pl-glow),
+    0 2px 0 var(--pl-shadow);
+}
+.segment-bar {
+  --padding-start: 16px;
+  --padding-end: 16px;
+  --padding-top: 2px;
+  --padding-bottom: 10px;
+}
+.view-segment {
+  --background: transparent;
+  gap: 8px;
+  border-radius: 0;
+  overflow: visible;
+}
 .seg {
   min-height: 44px;
+  --background: var(--pl-surface);
+  --background-checked: var(--pl-surface);
+  --background-hover: transparent;
+  --color: var(--pl-muted);
+  --color-checked: var(--pl-on-primary);
+  --color-hover: var(--ion-text-color);
+  --indicator-color: var(--ion-color-primary);
+  --indicator-height: 100%;
+  --indicator-box-shadow: none;
+  --border-radius: 12px;
+  --border-width: 0;
+  --border-color: transparent;
+  --padding-top: 0;
+  --padding-bottom: 0;
+  margin: 0;
+  border-radius: 12px;
+  font-family: var(--pl-font-display);
+  font-weight: 400;
+  font-size: 1.05rem;
+  font-synthesis: none;
+}
+.seg::before {
+  display: none;
+}
+.seg::part(indicator) {
+  top: 0;
+  bottom: 0;
+  padding: 0;
+}
+.seg::part(indicator-background) {
+  height: 100%;
+  border-radius: 12px;
+  background: var(--ion-color-primary);
+}
+@media (prefers-reduced-motion: reduce) {
+  .seg {
+    --indicator-transition: none;
+  }
+}
+.place-heading {
+  font-size: 1.625rem;
+  line-height: 1.1;
 }
 .tap {
   min-height: 44px;

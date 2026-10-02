@@ -21,13 +21,13 @@ const live = computed(() => props.pin.status === 'ACTIVE')
       class="photo block w-full object-cover"
     />
     <div class="flex flex-col gap-2 p-4">
-      <h2 class="m-0 text-xl font-bold break-words">{{ pin.title }}</h2>
-      <p class="m-0 text-sm opacity-80">{{ placeLine(pin) }}</p>
+      <h2 class="pl-display m-0 text-2xl break-words">{{ pin.title }}</h2>
+      <p class="m-0 text-sm pl-muted">{{ placeLine(pin) }}</p>
       <div>
         <ion-badge :color="info.tone" class="status" data-testid="pin-status">{{ info.label }}</ion-badge>
       </div>
       <p class="m-0 text-sm">{{ info.detail }}</p>
-      <p v-if="live" class="m-0 text-sm opacity-80">{{ hereCountLong(pin.hereVotes) }}</p>
+      <p v-if="live" class="m-0 text-sm pl-muted">{{ hereCountLong(pin.hereVotes) }}</p>
       <p v-if="pin.description" class="m-0 text-sm whitespace-pre-line break-words">{{ pin.description }}</p>
     </div>
   </article>
@@ -35,7 +35,7 @@ const live = computed(() => props.pin.status === 'ACTIVE')
 
 <style scoped>
 .card {
-  background: var(--ion-card-background, var(--ion-item-background));
+  background: var(--pl-surface);
 }
 .photo {
   aspect-ratio: 4 / 3;

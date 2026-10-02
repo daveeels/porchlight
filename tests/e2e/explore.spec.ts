@@ -5,6 +5,8 @@ import {
   AREA_NAME,
   TOWN_NAME,
   badgeOrder,
+  cardStatus,
+  cardTowns,
   cards,
   loadAllPages,
   openExplore,
@@ -31,6 +33,9 @@ test('home opens on Tauranga & surrounds with seeded pins, verified first', asyn
   const firstUnverified = badges.findIndex((b) => b.includes('Unverified'))
   expect(firstUnverified).toBeGreaterThan(0)
   expect(badges.slice(firstUnverified).every((b) => b.includes('Unverified'))).toBe(true)
+  // Each card's sticker says the same: "✓ <votes>" when verified, "NEW" when not.
+  const stickers = (await cards(page).locator('.sticker').allTextContents()).map((s) => s.trim())
+  expect(stickers).toEqual(badges.map((b) => (b.startsWith('Verified') ? `✓ ${/^Verified · (\d+)/.exec(b)?.[1]}` : 'NEW')))
   await expect(cards(page).filter({ hasText: 'Sulphur City Spooks' })).toHaveCount(0)
   await expect(cards(page).filter({ hasText: 'Totally Real Display' })).toHaveCount(0)
   await snap(page, testInfo, 'home-all-pages')
@@ -56,7 +61,7 @@ test('search "papamoa" finds Pāpāmoa and narrows the list', async ({ page }, t
   const n = await cards(page).count()
   expect(n).toBeGreaterThan(0)
   expect(n).toBeLessThan(areaCount)
-  for (const town of await cards(page).locator('ion-label > p').allTextContents()) expect(town.trim()).toBe(TOWN_NAME)
+  for (const town of await cardTowns(page).allTextContents()) expect(town.trim()).toBe(TOWN_NAME)
   await snap(page, testInfo, 'town-papamoa')
 })
 
@@ -67,13 +72,15 @@ test('town chips narrow the list and "All" restores it', async ({ page }, testIn
   await expect(all).toHaveAttribute('aria-pressed', 'true')
 
   const chip = townChips(page).filter({ hasText: /^Te Puke$/ })
-  await chip.click()
+  // Chips work from the keyboard (native buttons): focus, then Enter.
+  await chip.focus()
+  await page.keyboard.press('Enter')
   await expect(page).toHaveURL(/\?town=te-puke-e8-nz$/)
   await expect(placeHeading(page)).toHaveText('Te Puke')
   await expect(chip).toHaveAttribute('aria-pressed', 'true')
   await expect(all).toHaveAttribute('aria-pressed', 'false')
   await expect(cards(page)).toHaveCount(5)
-  for (const town of await cards(page).locator('ion-label > p').allTextContents()) expect(town.trim()).toBe('Te Puke')
+  for (const town of await cardTowns(page).allTextContents()) expect(town.trim()).toBe('Te Puke')
   await snap(page, testInfo, 'chip-te-puke')
 
   await all.click()
@@ -92,7 +99,8 @@ test('Verified only hides unverified displays', async ({ page }, testInfo) => {
 
   await page.getByRole('switch', { name: 'Verified only' }).click()
   await expect(cards(page)).toHaveCount(verified)
-  await expect(cards(page).locator('ion-badge', { hasText: 'Unverified' })).toHaveCount(0)
+  await expect(cardStatus(page).filter({ hasText: 'Unverified' })).toHaveCount(0)
+  await expect(cards(page).locator('.sticker', { hasText: 'NEW' })).toHaveCount(0)
   await snap(page, testInfo, 'verified-only')
 
   await page.getByRole('switch', { name: 'Verified only' }).click()
@@ -103,7 +111,7 @@ test('tapping a card opens the detail sheet; closing it clears ?pin', async ({ p
   await openExplore(page)
   const card = cards(page).first()
   const id = await card.getAttribute('data-pin-id')
-  const title = (await card.locator('h3').textContent())?.trim() ?? ''
+  const title = (await card.locator('.title').textContent())?.trim() ?? ''
   await card.click()
 
   await expect(page).toHaveURL(new RegExp(`[?&]pin=${id}`))

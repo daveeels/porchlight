@@ -61,7 +61,7 @@ async function openSheet(page: Page, pinId: string): Promise<void> {
   await page.goto(`/?pin=${pinId}`)
   const sheet = page.locator('ion-modal')
   await expect(sheet.getByRole('link', { name: 'Open in Maps' })).toBeVisible(FIRST_LOAD)
-  await sheet.evaluate((m) => (m as HTMLElement & { setCurrentBreakpoint(b: number): Promise<void> }).setCurrentBreakpoint(0.9))
+  await sheet.evaluate((m) => (m as HTMLElement & { setCurrentBreakpoint(b: number): Promise<void> }).setCurrentBreakpoint(0.95))
   await page.waitForTimeout(400)
 }
 

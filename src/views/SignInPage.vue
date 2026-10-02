@@ -122,8 +122,8 @@ function continueWithGoogle(): void {
 
     <ion-content class="ion-padding">
       <div class="mx-auto flex max-w-sm flex-col gap-4 pt-6">
-        <h1 class="m-0 text-2xl font-bold">Join Porchlight</h1>
-        <p class="m-0 opacity-85">
+        <h1 class="pl-display m-0 text-3xl">Join Porchlight</h1>
+        <p class="m-0 pl-muted">
           Members can use the map, add their own display and vote on whether displays are really there.
           Searching and browsing stay free without an account.
         </p>
@@ -150,7 +150,7 @@ function continueWithGoogle(): void {
               <ion-icon v-else slot="start" :icon="logoGoogle" aria-hidden="true" />
               Continue with Google
             </ion-button>
-            <p class="m-0 text-xs opacity-75">Google sign-in usually only works in your phone's browser.</p>
+            <p class="m-0 text-xs pl-muted">Google sign-in usually only works in your phone's browser.</p>
             <p v-if="errorMessage" class="error m-0 text-sm" role="alert">{{ errorMessage }}</p>
           </in-app-browser-notice>
         </template>
@@ -173,7 +173,7 @@ function continueWithGoogle(): void {
           />
         </template>
 
-        <p class="m-0 text-xs opacity-75">
+        <p class="m-0 text-xs pl-muted">
           We only use your Google account or email address to sign you in. Your name and email are never
           shown on displays or stored with them.
           <router-link to="/about" class="link">Privacy &amp; terms</router-link>
@@ -196,6 +196,7 @@ function continueWithGoogle(): void {
 }
 .link {
   color: var(--ion-color-primary);
+  font-weight: 800;
   display: inline-block;
   padding: 12px 0;
 }

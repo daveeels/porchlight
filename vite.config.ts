@@ -27,8 +27,8 @@ const pwa: Partial<VitePWAOptions> = {
     start_url: '/',
     scope: '/',
     display: 'standalone',
-    background_color: '#1a1025',
-    theme_color: '#1a1025',
+    background_color: '#17120f',
+    theme_color: '#17120f',
     icons: [
       { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
       { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
@@ -40,7 +40,9 @@ const pwa: Partial<VitePWAOptions> = {
     // the manifest). No runtimeCaching, so map tiles, Firestore, Storage
     // photos and Firebase APIs always go to the network. MapLibre (members-only
     // map, ~1 MB) and the emulator seed photos aren't precached.
-    globPatterns: ['**/*.{js,css,html}'],
+    // Plus the self-hosted Latin / Latin Extended fonts (not the woff
+    // fallbacks or other scripts' subsets), so the installed app keeps its type offline.
+    globPatterns: ['**/*.{js,css,html}', 'assets/*-latin-*.woff2'],
     globIgnores: ['**/maplibre-gl*', 'seed/**'],
     maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
     navigateFallback: '/index.html',

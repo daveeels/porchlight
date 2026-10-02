@@ -4,7 +4,7 @@
 // message for an account that isn't a tester.
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
-import { FIRST_LOAD, MOUNT_MAUNGANUI, cards, loadAllPages, snap } from './helpers'
+import { FIRST_LOAD, MOUNT_MAUNGANUI, cardStatus, cards, loadAllPages, snap } from './helpers'
 import { addDisplay, addTesters, completeGoogleSignIn, strangerEmail, testerEmail, townKeyOf } from './phase2'
 
 const PHOTO = join('tests', 'e2e', 'fixtures', 'house.jpg')
@@ -53,7 +53,8 @@ test('a tester adds a display and sees it on My display', async ({ page }, testI
   await loadAllPages(page)
   const mine = cards(page).filter({ hasText: title })
   await expect(mine).toHaveCount(1)
-  await expect(mine.locator('ion-badge')).toHaveText('Unverified')
+  await expect(cardStatus(page, mine)).toHaveText(/^Unverified · /)
+  await expect(mine.locator('.sticker')).toHaveText('NEW')
   await snap(page, testInfo, 'submit-town-list')
 })
 

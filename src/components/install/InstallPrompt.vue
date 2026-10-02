@@ -60,14 +60,14 @@ function install(): void {
 <template>
   <section
     v-if="mode"
-    class="install mx-3 my-2 rounded-xl py-1 pr-1 pl-3"
+    class="install mx-4 my-2 rounded-xl py-1 pr-1 pl-3"
     aria-labelledby="install-title"
     data-testid="install-prompt"
     :data-mode="mode"
   >
     <div class="flex items-center gap-2">
       <img :src="ICON_URL" alt="" width="32" height="32" class="icon flex-none rounded-lg" />
-      <h2 id="install-title" class="m-0 min-w-0 flex-1 text-sm font-semibold leading-snug">
+      <h2 id="install-title" class="m-0 min-w-0 flex-1 text-sm font-extrabold leading-snug">
         Add Porchlight to your home screen
       </h2>
       <ion-button v-if="mode === 'native'" size="small" class="tap m-0" data-testid="install-button" @click="install">
@@ -97,7 +97,7 @@ function install(): void {
           <span>
             Tap <strong>Share</strong>
             <ion-icon :icon="shareOutline" class="glyph" aria-hidden="true" />
-            <span class="opacity-80"> (on newer iPhones, tap ··· first)</span>
+            <span class="pl-muted"> (on newer iPhones, tap ··· first)</span>
           </span>
         </li>
         <li class="flex items-center gap-2">
@@ -108,7 +108,7 @@ function install(): void {
           </span>
         </li>
       </ol>
-      <p class="m-0 mt-2 text-sm opacity-80">It opens full screen like an app, one tap away on the night.</p>
+      <p class="m-0 mt-2 text-sm pl-muted">It opens full screen like an app, one tap away on the night.</p>
       <div class="mt-2 flex justify-end">
         <ion-button fill="outline" size="small" class="tap m-0" @click="dismiss">Got it</ion-button>
       </div>
@@ -122,7 +122,7 @@ function install(): void {
       <ion-button :href="openInBrowserUrl" expand="block" class="tap m-0" data-testid="install-open-browser">
         Open in {{ browserName }}
       </ion-button>
-      <p class="m-0 text-xs opacity-80">
+      <p class="m-0 text-xs pl-muted">
         Nothing happened? Tap <strong>⋯</strong> at the top or bottom of the screen, then
         <strong>Open in browser</strong>.
       </p>
@@ -132,8 +132,10 @@ function install(): void {
 
 <style scoped>
 .install {
-  background: var(--ion-card-background, var(--ion-item-background));
-  border: 1px solid rgba(var(--ion-color-primary-rgb), 0.35);
+  background: var(--pl-surface);
+  border: 1px solid rgba(var(--ion-color-primary-rgb), 0.45);
+  border-radius: 18px;
+  box-shadow: 0 3px 0 var(--pl-shadow);
 }
 .icon {
   width: 32px;

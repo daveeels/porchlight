@@ -35,7 +35,7 @@ const retryable = computed(() => ['UPLOAD_FAILED', 'NETWORK', 'UNKNOWN'].include
 <template>
   <div class="box flex flex-col gap-3 rounded-xl p-4" data-testid="submit-error">
     <div role="alert">
-      <h2 class="m-0 text-lg font-semibold">{{ title }}</h2>
+      <h2 class="pl-display m-0 text-xl">{{ title }}</h2>
       <p class="m-0 mt-1 text-sm">{{ error.message }}</p>
     </div>
     <ion-button v-if="error.reason === 'ALREADY_EXISTS'" expand="block" class="tap m-0" router-link="/me">

@@ -247,13 +247,16 @@ onIonViewDidEnter(() => {
 }
 .about h1 {
   margin: 1.5rem 0 0.5rem;
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-family: var(--pl-font-display);
+  font-size: 1.75rem;
+  font-weight: 400;
+  line-height: 1.1;
+  font-synthesis: none;
 }
 .about h2 {
   margin: 1.25rem 0 0.25rem;
   font-size: 1.1rem;
-  font-weight: 600;
+  font-weight: 800;
 }
 .about p,
 .about li {
@@ -271,10 +274,11 @@ onIonViewDidEnter(() => {
 }
 .meta {
   font-size: 0.85rem;
-  opacity: 0.75;
+  color: var(--pl-muted);
 }
 .link {
   color: var(--ion-color-primary);
+  font-weight: 800;
   overflow-wrap: anywhere;
 }
 nav .link {

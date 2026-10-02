@@ -108,6 +108,7 @@ async function copyLink(): Promise<void> {
   padding-top: 12px;
   padding-bottom: 12px;
   color: var(--ion-color-primary);
+  font-weight: 800;
 }
 .picture {
   width: 100%;

@@ -45,19 +45,19 @@ const progressLabel = computed(() => {
 
 <template>
   <section class="flex flex-col gap-3" aria-labelledby="preview-heading">
-    <h2 id="preview-heading" class="m-0 text-lg font-semibold">Check it looks right</h2>
+    <h2 id="preview-heading" class="pl-display m-0 text-2xl">Check it looks right</h2>
 
     <article class="card overflow-hidden rounded-xl" data-testid="preview-card">
       <img v-if="imageUrl" :src="imageUrl" alt="Your display photo" class="photo block w-full object-cover" />
       <div class="flex flex-col gap-1 p-3">
-        <h3 class="m-0 text-lg font-bold break-words">{{ title.trim() }}</h3>
-        <p v-if="town" class="m-0 text-sm opacity-80">{{ town }}</p>
+        <h3 class="pl-display m-0 text-2xl break-words">{{ title.trim() }}</h3>
+        <p v-if="town" class="m-0 text-sm pl-muted">{{ town }}</p>
         <div><VerifiedBadge :verified="false" /></div>
         <p v-if="description.trim()" class="m-0 mt-1 text-sm whitespace-pre-line break-words">{{ description.trim() }}</p>
       </div>
     </article>
 
-    <p class="m-0 text-sm opacity-85">
+    <p class="m-0 text-sm pl-muted">
       <template v-if="editing">Location can't be changed. To move it, delete your display and add it again.</template>
       <template v-else>
         New displays go live straight away as Unverified. The location is shown about 25–50 m from where you put the
@@ -92,7 +92,7 @@ const progressLabel = computed(() => {
   min-height: 48px;
 }
 .card {
-  background: var(--ion-card-background, var(--ion-item-background));
+  background: var(--pl-surface);
 }
 .photo {
   aspect-ratio: 4 / 3;

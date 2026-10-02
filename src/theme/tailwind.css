@@ -20,3 +20,4 @@
 @import "tailwindcss/utilities.css" layer(utilities);
 
 @import "./variables.css";
+@import "./app.css";

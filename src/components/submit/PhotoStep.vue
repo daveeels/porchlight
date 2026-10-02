@@ -58,8 +58,8 @@ async function onFile(e: Event): Promise<void> {
 <template>
   <section class="flex flex-col gap-3" aria-labelledby="photo-heading">
     <div>
-      <h2 id="photo-heading" class="m-0 text-lg font-semibold">{{ editing ? 'Photo' : 'Add a photo' }}</h2>
-      <p class="m-0 mt-1 text-sm opacity-85">
+      <h2 id="photo-heading" class="pl-display m-0 text-2xl">{{ editing ? 'Photo' : 'Add a photo' }}</h2>
+      <p class="m-0 mt-1 text-sm pl-muted">
         Show the decorations from the street. Leave out house numbers, car plates and people's faces.
         <template v-if="editing"> Keep the current photo or pick a new one — a new photo resets the "It's here" votes.</template>
       </p>

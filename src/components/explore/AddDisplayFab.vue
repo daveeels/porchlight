@@ -25,7 +25,11 @@ const season = useSeasonStore()
   min-height: 52px;
   --padding-start: 18px;
   --padding-end: 20px;
-  --box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
-  font-weight: 600;
+  --box-shadow: 0 3px 0 var(--pl-shadow), 0 8px 22px var(--pl-shadow);
+  font-family: var(--pl-font-display);
+  font-weight: 400;
+  font-size: 1.05rem;
+  font-synthesis: none;
+  letter-spacing: 0.01em;
 }
 </style>

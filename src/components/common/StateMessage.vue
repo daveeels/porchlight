@@ -22,7 +22,7 @@ defineProps<{
       <ion-spinner v-if="loading" name="crescent" color="primary" class="mb-3" />
       <div v-else-if="emoji" class="mb-2 text-4xl" aria-hidden="true">{{ emoji }}</div>
       <ion-icon v-else-if="icon" :icon="icon" color="medium" class="mb-2 text-4xl" aria-hidden="true" />
-      <h2 class="m-0 text-lg font-semibold">{{ title }}</h2>
+      <h2 class="title pl-display m-0">{{ title }}</h2>
       <p v-if="message" class="state-message mt-2 mb-0 max-w-xs text-sm">{{ message }}</p>
     </div>
     <div v-if="$slots.default" class="mt-4 flex flex-col items-center gap-2">
@@ -32,8 +32,12 @@ defineProps<{
 </template>
 
 <style scoped>
+.title {
+  font-size: 1.375rem;
+  line-height: 1.15;
+}
 .state-message {
-  color: var(--ion-color-step-600, var(--ion-text-color));
-  opacity: 0.85;
+  color: var(--pl-muted);
+  font-weight: 700;
 }
 </style>

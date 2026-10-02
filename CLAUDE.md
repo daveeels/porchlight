@@ -67,7 +67,7 @@ docs/          SPEC.md, RUNBOOK.md
 ## UI conventions
 
 - Mobile-first at 375 px. Tap targets ≥ 44 × 44 px. No horizontal scroll.
-- Pin details always open in an `IonModal` bottom sheet (breakpoints `[0, 0.4, 0.9]`).
+- Pin details always open in an `IonModal` bottom sheet (breakpoints `[0, 0.75, 0.95]`, opening at 0.75 so the photo, title and vote buttons are all visible at once).
 - Anonymous users see write actions (vote, report, add, map) as prompts to sign in, not hidden.
 - Season theme comes from `data-season` on `<html>`, driving Ionic CSS variables. No hardcoded season colors in components.
 - Every async screen has loading, empty and error states (SPEC §7).

@@ -146,14 +146,14 @@ async function usePastedLink(): Promise<void> {
 
     <section v-else class="inbox flex flex-col gap-3 rounded-xl p-4" aria-labelledby="inbox-heading">
       <div role="status" class="flex flex-col gap-2">
-        <h2 id="inbox-heading" class="m-0 text-lg font-semibold">
+        <h2 id="inbox-heading" class="pl-display m-0 text-xl">
           <span aria-hidden="true">📬 </span>Check your inbox
         </h2>
         <p class="m-0">
           We sent a sign-in link to <strong class="break-all">{{ sentTo }}</strong>. Open it on this phone to
           finish signing in.
         </p>
-        <p class="m-0 text-sm opacity-85">Can't see it? Check your spam or junk folder.</p>
+        <p class="m-0 text-sm pl-muted">Can't see it? Check your spam or junk folder.</p>
       </div>
       <ion-button expand="block" fill="outline" class="tap" :disabled="sending || cooldown > 0" @click="resend">
         <ion-spinner v-if="sending" slot="start" name="crescent" />
@@ -201,5 +201,6 @@ async function usePastedLink(): Promise<void> {
   cursor: pointer;
   padding: 12px 0;
   color: var(--ion-color-primary);
+  font-weight: 800;
 }
 </style>

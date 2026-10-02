@@ -70,12 +70,11 @@ const statusLine = computed(() => {
 
 <template>
   <section class="flex flex-col gap-2" aria-labelledby="vote-question" data-testid="vote-bar">
-    <h3 id="vote-question" class="m-0 text-base font-semibold">Did you see it?</h3>
+    <h3 id="vote-question" class="question pl-display m-0">Did you see it?</h3>
     <div class="grid grid-cols-2 gap-2">
       <ion-button
-        class="vote"
-        :class="{ unselected: myVote !== 'HERE' }"
-        color="success"
+        class="vote vote-here"
+        :class="{ quiet: myVote === 'NOT_THERE' }"
         :fill="myVote === 'HERE' ? 'solid' : 'outline'"
         :disabled="busy"
         :aria-pressed="auth.isSignedIn ? myVote === 'HERE' : undefined"
@@ -87,9 +86,7 @@ const statusLine = computed(() => {
         It's here
       </ion-button>
       <ion-button
-        class="vote"
-        :class="{ unselected: myVote !== 'NOT_THERE' }"
-        color="danger"
+        class="vote vote-not-there"
         :fill="myVote === 'NOT_THERE' ? 'solid' : 'outline'"
         :disabled="busy"
         :aria-pressed="auth.isSignedIn ? myVote === 'NOT_THERE' : undefined"
@@ -109,7 +106,7 @@ const statusLine = computed(() => {
       </ion-button>
     </template>
     <template v-else>
-      <p v-if="statusLine" class="m-0 text-center text-sm opacity-80" role="status" data-testid="my-vote">
+      <p v-if="statusLine" class="pl-muted m-0 text-center text-sm font-bold" role="status" data-testid="my-vote">
         {{ statusLine }}
       </p>
       <p
@@ -127,15 +124,45 @@ const statusLine = computed(() => {
 </template>
 
 <style scoped>
+.question {
+  font-size: 1.125rem;
+  line-height: 1.2;
+}
+/* Big rounded sticker buttons. "It's here" is amber (the inviting choice)
+   unless you said "Not there"; "Not there" is a surface button that turns
+   ember once chosen. Your vote is also pressed in, with a ring. */
 .vote {
+  --border-radius: 16px;
+  --border-width: 0;
+  --box-shadow: 0 3px 0 var(--pl-shadow);
+  --background: var(--pl-surface);
+  --background-hover: var(--ion-text-color);
+  --background-hover-opacity: 0.06;
+  --color: var(--ion-text-color);
   min-height: 52px;
   margin: 0;
-  font-weight: 600;
+  font-family: var(--pl-font-display);
+  font-weight: 400;
+  font-size: 1.05rem;
+  font-synthesis: none;
+  letter-spacing: 0.01em;
 }
-/* Outline (not chosen): coloured border, but body-colour text — red or green
-   text on the dark season backgrounds is too low-contrast to read. */
-.vote.unselected::part(native) {
-  color: var(--ion-text-color, currentColor);
+.vote-here:not(.quiet) {
+  --background: var(--ion-color-primary);
+  --background-hover: var(--pl-on-primary);
+  --color: var(--pl-on-primary);
+}
+.vote-not-there[data-selected='true'] {
+  --background: var(--ion-color-secondary);
+  --background-hover: var(--ion-color-secondary-contrast);
+  --color: var(--ion-color-secondary-contrast);
+}
+.vote[data-selected='true'] {
+  --box-shadow: 0 1px 0 var(--pl-shadow);
+  transform: translateY(2px);
+  outline: 2px solid var(--ion-text-color);
+  outline-offset: 2px;
+  border-radius: 16px;
 }
 .tap {
   min-height: 44px;

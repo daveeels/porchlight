@@ -48,8 +48,8 @@ const roughFix = computed(() => {
 <template>
   <section class="flex flex-col gap-3" aria-labelledby="loc-heading">
     <div>
-      <h2 id="loc-heading" class="m-0 text-lg font-semibold">Where is your display?</h2>
-      <p class="m-0 mt-1 text-sm opacity-85">
+      <h2 id="loc-heading" class="pl-display m-0 text-2xl">Where is your display?</h2>
+      <p class="m-0 mt-1 text-sm pl-muted">
         Stand out the front and use your location, or tap the map and drag the pin onto the house.
       </p>
     </div>
@@ -80,7 +80,7 @@ const roughFix = computed(() => {
       </div>
     </div>
 
-    <p class="m-0 text-sm opacity-85">
+    <p class="m-0 text-sm pl-muted">
       Your pin will be shown about 25–50 m from where you place it. That makes the exact house a bit harder to find,
       but your photo still shows it.
     </p>

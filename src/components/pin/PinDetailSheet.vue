@@ -98,89 +98,105 @@ async function share(): Promise<void> {
 <template>
   <ion-modal
     :is-open="isOpen"
-    :breakpoints="[0, 0.4, 0.9]"
-    :initial-breakpoint="0.4"
+    :breakpoints="[0, 0.75, 0.95]"
+    :initial-breakpoint="0.75"
     :handle="true"
     aria-label="Display details"
     @did-dismiss="onDidDismiss"
   >
-    <ion-content class="ion-padding">
-      <StateMessage v-if="pins.selectedPinLoading" loading title="Loading display…" />
+    <ion-content>
+      <div v-if="pins.selectedPinLoading || notFound || pins.selectedPinError || !pin" class="ion-padding">
+        <StateMessage v-if="pins.selectedPinLoading" loading title="Loading display…" />
 
-      <StateMessage
-        v-else-if="notFound"
-        :icon="alertCircleOutline"
-        title="This display isn't available"
-        message="It may have been removed or hidden."
-      />
-
-      <StateMessage
-        v-else-if="pins.selectedPinError"
-        :icon="alertCircleOutline"
-        title="Couldn't load this display"
-        error
-        message="Check your connection and try again."
-      >
-        <ion-button @click="retry">Try again</ion-button>
-      </StateMessage>
-
-      <!-- Voting sits right under the title so it's on screen at the sheet's
-           first (40%) height; the photo, Maps, Share and Report follow. -->
-      <article v-else-if="pin" class="flex flex-col gap-3 pb-6">
-        <header>
-          <h2 class="m-0 text-xl font-bold">{{ pin.title }}</h2>
-          <p class="mt-1 mb-0 text-sm opacity-80">{{ placeLine(pin) }}</p>
-        </header>
-
-        <div class="flex flex-wrap items-center gap-2" data-testid="pin-counts">
-          <VerifiedBadge :verified="pin.verified" />
-          <!-- One text run with a no-break space before the dot, so a wrap at
-               phone width never starts a line with "·". -->
-          <span class="text-sm">
-            {{ hereCountLong(pin.hereVotes)
-            }}<span v-if="pin.notThereVotes > 0" class="opacity-70">&nbsp;· {{ notThereCountLong(pin.notThereVotes) }}</span>
-          </span>
-        </div>
-
-        <p v-if="isOwn" class="m-0 text-sm opacity-80" role="note" data-testid="own-pin-note">
-          {{ pin.status === 'ACTIVE' ? 'This is your display.' : "This is your display. It isn't currently shown to other people." }}
-        </p>
-        <VoteBar v-else :pin="pin" :report="false" @gone="onGone" />
-
-        <img
-          :src="pin.photoUrl"
-          :alt="`Photo of ${pin.title}`"
-          class="photo w-full rounded-lg object-cover"
-          loading="lazy"
+        <StateMessage
+          v-else-if="notFound"
+          :icon="alertCircleOutline"
+          title="This display isn't available"
+          message="It may have been removed or hidden."
         />
 
-        <p v-if="pin.description" class="m-0 whitespace-pre-line">{{ pin.description }}</p>
+        <StateMessage
+          v-else-if="pins.selectedPinError"
+          :icon="alertCircleOutline"
+          title="Couldn't load this display"
+          error
+          message="Check your connection and try again."
+        >
+          <ion-button @click="retry">Try again</ion-button>
+        </StateMessage>
+      </div>
 
-        <div class="grid grid-cols-2 gap-2">
-          <ion-button :href="mapsWebUrl" target="_blank" rel="noopener" class="tap" @click="openMaps">
-            <ion-icon slot="start" :icon="navigateOutline" aria-hidden="true" />
-            Open in Maps
-          </ion-button>
-          <ion-button fill="outline" class="tap" @click="share">
-            <ion-icon slot="start" :icon="shareSocialOutline" aria-hidden="true" />
-            Share
-          </ion-button>
+      <!-- A short photo hero, then the panel. Voting sits right under the
+           title so it's on screen at the sheet's first (40%) height; the
+           description, Maps, Share and Report follow. -->
+      <article v-else class="pb-6">
+        <img :src="pin.photoUrl" :alt="`Photo of ${pin.title}`" class="hero block w-full object-cover" />
+
+        <div class="panel flex flex-col gap-3">
+          <header class="flex flex-col items-start gap-1" data-testid="pin-counts">
+            <VerifiedBadge :verified="pin.verified" class="mb-1" />
+            <h2 class="title pl-display m-0">{{ pin.title }}</h2>
+            <p class="pl-muted m-0 text-sm font-bold">{{ placeLine(pin) }}</p>
+            <!-- One text run with a no-break space before the dot, so a wrap at
+                 phone width never starts a line with "·". -->
+            <p class="pl-muted m-0 text-sm font-bold">
+              {{ hereCountLong(pin.hereVotes)
+              }}<span v-if="pin.notThereVotes > 0">&nbsp;· {{ notThereCountLong(pin.notThereVotes) }}</span>
+            </p>
+          </header>
+
+          <p v-if="isOwn" class="own m-0 rounded-xl p-3 text-sm font-bold" role="note" data-testid="own-pin-note">
+            {{ pin.status === 'ACTIVE' ? 'This is your display.' : "This is your display. It isn't currently shown to other people." }}
+          </p>
+          <VoteBar v-else :pin="pin" :report="false" @gone="onGone" />
+
+          <p v-if="pin.description" class="m-0 whitespace-pre-line">{{ pin.description }}</p>
+
+          <div class="links flex flex-wrap items-center gap-x-2">
+            <ion-button :href="mapsWebUrl" target="_blank" rel="noopener" fill="clear" class="link-btn" @click="openMaps">
+              <ion-icon slot="start" :icon="navigateOutline" aria-hidden="true" />
+              Open in Maps
+            </ion-button>
+            <ion-button fill="clear" class="link-btn" @click="share">
+              <ion-icon slot="start" :icon="shareSocialOutline" aria-hidden="true" />
+              Share
+            </ion-button>
+          </div>
+          <ion-note class="pl-muted text-xs">Location is approximate — shown about 25–50 m from the house.</ion-note>
+
+          <ReportButton v-if="!isOwn" :pin="pin" @gone="onGone" />
         </div>
-        <ion-note class="text-xs">Location is approximate — shown about 25–50 m from the house.</ion-note>
-
-        <ReportButton v-if="!isOwn" :pin="pin" @gone="onGone" />
       </article>
     </ion-content>
   </ion-modal>
 </template>
 
 <style scoped>
-.photo {
-  aspect-ratio: 4 / 3;
-  background: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.08);
+.hero {
+  height: 150px;
+  background: var(--pl-surface);
 }
-.tap {
+.panel {
+  position: relative;
+  margin-top: -22px;
+  padding: 14px 16px 0;
+  border-radius: 22px 22px 0 0;
+  background: var(--ion-background-color);
+}
+.title {
+  font-size: 1.75rem;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+.own {
+  background: var(--pl-surface);
+}
+.link-btn {
+  --color: var(--ion-color-primary);
+  --padding-start: 4px;
+  --padding-end: 8px;
   min-height: 44px;
-  margin: 0;
+  margin: 0 0 0 -4px;
+  font-weight: 800;
 }
 </style>

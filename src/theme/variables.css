@@ -1,54 +1,129 @@
 /*
- * Season palettes. useSeasonStore sets data-season on <html>; components use
- * Ionic's --ion-* variables and never hardcode season colors.
+ * Season palettes ("Trick-or-treat, at dusk"). useSeasonStore sets
+ * data-season on <html>; components use these variables (Ionic's --ion-* and
+ * Porchlight's --pl-*) and never hardcode season colors.
+ *
+ *   --pl-bg / --pl-text  page background and body text
+ *   --pl-surface         raised panels: cards, chips, segment, "Not there"
+ *   --pl-line            hairlines and borders
+ *   --pl-muted           secondary text (AA on bg and surface)
+ *   --pl-on-primary      text on the primary colour (amber / gold)
+ *   --pl-cream           search box and Sign in pill; --pl-cream-text on it
+ *   --pl-shadow          the hard "sticker" drop shadow
+ *   --pl-glow            soft glow round verified cards and the wordmark
  */
 
+:root {
+  --pl-font-display: 'Lilita One', 'Arial Rounded MT Bold', 'Trebuchet MS', system-ui, sans-serif;
+  --pl-font-body: 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --ion-font-family: var(--pl-font-body);
+}
+
 :root[data-season='HALLOWEEN'] {
-  --ion-color-primary: #ff7a1a;
-  --ion-color-primary-rgb: 255, 122, 26;
-  --ion-color-primary-contrast: #1a1025;
-  --ion-color-primary-contrast-rgb: 26, 16, 37;
-  --ion-color-primary-shade: #e06b17;
-  --ion-color-primary-tint: #ff8731;
+  --pl-bg: #17120f;
+  --pl-surface: #261c16;
+  --pl-line: #3d2f25;
+  --pl-text: #f6ead9;
+  --pl-muted: #c3ae95;
+  --pl-muted-rgb: 195, 174, 149;
+  --pl-on-primary: #2a1a08;
+  --pl-on-primary-rgb: 42, 26, 8;
+  --pl-cream: #f6ead9;
+  --pl-cream-text: #6e5a45;
+  --pl-shadow: #0c0806;
+  --pl-glow: rgba(255, 181, 71, 0.4);
 
-  --ion-color-secondary: #8b5cf6;
-  --ion-color-secondary-rgb: 139, 92, 246;
-  --ion-color-secondary-contrast: #ffffff;
-  --ion-color-secondary-contrast-rgb: 255, 255, 255;
-  --ion-color-secondary-shade: #7a51d8;
-  --ion-color-secondary-tint: #976cf7;
+  /* Lantern amber */
+  --ion-color-primary: #ffb547;
+  --ion-color-primary-rgb: 255, 181, 71;
+  --ion-color-primary-contrast: #2a1a08;
+  --ion-color-primary-contrast-rgb: 42, 26, 8;
+  --ion-color-primary-shade: #e09f3e;
+  --ion-color-primary-tint: #ffbc59;
 
-  --ion-background-color: #1a1025;
-  --ion-background-color-rgb: 26, 16, 37;
-  --ion-text-color: #f4eefc;
-  --ion-text-color-rgb: 244, 238, 252;
-  --ion-toolbar-background: #241634;
-  --ion-item-background: #241634;
-  --ion-card-background: #241634;
+  /* Ember */
+  --ion-color-secondary: #e8743b;
+  --ion-color-secondary-rgb: 232, 116, 59;
+  --ion-color-secondary-contrast: #2a1a08;
+  --ion-color-secondary-contrast-rgb: 42, 26, 8;
+  --ion-color-secondary-shade: #cc6634;
+  --ion-color-secondary-tint: #ea824f;
+
+  --ion-background-color: #17120f;
+  --ion-background-color-rgb: 23, 18, 15;
+  --ion-text-color: #f6ead9;
+  --ion-text-color-rgb: 246, 234, 217;
 }
 
 :root[data-season='CHRISTMAS'] {
-  --ion-color-primary: #c62828;
-  --ion-color-primary-rgb: 198, 40, 40;
-  --ion-color-primary-contrast: #ffffff;
-  --ion-color-primary-contrast-rgb: 255, 255, 255;
-  --ion-color-primary-shade: #ae2323;
-  --ion-color-primary-tint: #cc3e3e;
+  --pl-bg: #121a17;
+  --pl-surface: #1c2621;
+  --pl-line: #2e3b34;
+  --pl-text: #f3efe4;
+  --pl-muted: #b6b9a8;
+  --pl-muted-rgb: 182, 185, 168;
+  --pl-on-primary: #1f1a08;
+  --pl-on-primary-rgb: 31, 26, 8;
+  --pl-cream: #f3efe4;
+  --pl-cream-text: #5c5a4a;
+  --pl-shadow: #070b09;
+  --pl-glow: rgba(255, 210, 122, 0.38);
 
-  --ion-color-secondary: #1b7f3b;
-  --ion-color-secondary-rgb: 27, 127, 59;
-  --ion-color-secondary-contrast: #ffffff;
-  --ion-color-secondary-contrast-rgb: 255, 255, 255;
-  --ion-color-secondary-shade: #187034;
-  --ion-color-secondary-tint: #328c4f;
+  /* Warm gold */
+  --ion-color-primary: #ffd27a;
+  --ion-color-primary-rgb: 255, 210, 122;
+  --ion-color-primary-contrast: #1f1a08;
+  --ion-color-primary-contrast-rgb: 31, 26, 8;
+  --ion-color-primary-shade: #e0b96b;
+  --ion-color-primary-tint: #ffd787;
 
-  --ion-background-color: #f7f9fb;
-  --ion-background-color-rgb: 247, 249, 251;
-  --ion-text-color: #14202b;
-  --ion-text-color-rgb: 20, 32, 43;
-  --ion-toolbar-background: #ffffff;
-  --ion-item-background: #ffffff;
-  --ion-card-background: #ffffff;
+  /* Berry. Light text: dark text on berry falls short of AA. */
+  --ion-color-secondary: #c8463c;
+  --ion-color-secondary-rgb: 200, 70, 60;
+  --ion-color-secondary-contrast: #fff7ee;
+  --ion-color-secondary-contrast-rgb: 255, 247, 238;
+  --ion-color-secondary-shade: #b03e35;
+  --ion-color-secondary-tint: #ce5950;
+
+  --ion-background-color: #121a17;
+  --ion-background-color-rgb: 18, 26, 23;
+  --ion-text-color: #f3efe4;
+  --ion-text-color-rgb: 243, 239, 228;
+}
+
+/* Both seasons are dark: surfaces from the tokens above, and Ionic's stock
+   colours lifted so they stay readable (AA) on a dark background. */
+:root[data-season] {
+  --ion-toolbar-background: var(--pl-bg);
+  --ion-toolbar-border-color: var(--pl-line);
+  --ion-item-background: var(--pl-surface);
+  --ion-card-background: var(--pl-surface);
+  --ion-border-color: var(--pl-line);
+  --ion-placeholder-color: var(--pl-muted);
+  --ion-overlay-background-color: var(--pl-surface);
+
+  --ion-color-medium: var(--pl-muted);
+  --ion-color-medium-rgb: var(--pl-muted-rgb);
+  --ion-color-medium-contrast: var(--pl-on-primary);
+  --ion-color-medium-contrast-rgb: var(--pl-on-primary-rgb);
+  --ion-color-medium-shade: var(--pl-muted);
+  --ion-color-medium-tint: var(--pl-muted);
+
+  --ion-color-danger: #ff7b6b;
+  --ion-color-danger-rgb: 255, 123, 107;
+  --ion-color-danger-contrast: #2a0a06;
+  --ion-color-danger-contrast-rgb: 42, 10, 6;
+  --ion-color-danger-shade: #e06c5e;
+  --ion-color-danger-tint: #ff887a;
+
+  --ion-color-success: #9fd18b;
+  --ion-color-success-rgb: 159, 209, 139;
+  --ion-color-success-contrast: #13200d;
+  --ion-color-success-contrast-rgb: 19, 32, 13;
+  --ion-color-success-shade: #8cb87a;
+  --ion-color-success-tint: #a9d697;
+
+  color-scheme: dark;
 }
 
 /*

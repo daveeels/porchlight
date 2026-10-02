@@ -168,7 +168,7 @@ async function refresh(ev: RefresherCustomEvent): Promise<void> {
               <ion-icon v-else slot="start" :icon="trashOutline" aria-hidden="true" />
               Delete
             </ion-button>
-            <p class="m-0 text-xs opacity-75">The location can't be changed. To move it, delete your display and add it again.</p>
+            <p class="m-0 text-xs pl-muted">The location can't be changed. To move it, delete your display and add it again.</p>
           </div>
           <ion-button v-else-if="canReAdd(myPin.pin)" expand="block" class="tap m-0" router-link="/submit">
             <ion-icon slot="start" :icon="addOutline" aria-hidden="true" />
@@ -178,7 +178,7 @@ async function refresh(ev: RefresherCustomEvent): Promise<void> {
 
         <hr class="divider my-2 w-full" />
 
-        <p v-if="email" class="m-0 text-sm opacity-80">Signed in as {{ email }}</p>
+        <p v-if="email" class="m-0 text-sm pl-muted">Signed in as {{ email }}</p>
         <ion-button expand="block" fill="clear" class="tap m-0" :disabled="signingOut" @click="signOut">
           <ion-icon slot="start" :icon="logOutOutline" aria-hidden="true" />
           Sign out
@@ -199,10 +199,11 @@ async function refresh(ev: RefresherCustomEvent): Promise<void> {
 }
 .divider {
   border: 0;
-  border-top: 1px solid rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.15);
+  border-top: 1px solid var(--pl-line);
 }
 .link {
   color: var(--ion-color-primary);
+  font-weight: 800;
   display: inline-block;
   padding: 12px 0;
 }

@@ -1,8 +1,7 @@
 <script setup lang="ts">
-// SPEC §5 beta mode: a small "Beta" chip in the header while
+// SPEC §5 beta mode: a small tilted "Beta" sticker in the header while
 // config/app.launchMode is 'BETA'. Renders nothing once LIVE.
 import { computed } from 'vue'
-import { IonBadge } from '@ionic/vue'
 import { useAppConfigStore } from '@/stores/appConfig'
 
 const appConfig = useAppConfigStore()
@@ -10,26 +9,20 @@ const isBeta = computed(() => appConfig.config.launchMode === 'BETA')
 </script>
 
 <template>
-  <ion-badge
+  <span
     v-if="isBeta"
-    color="tertiary"
-    class="beta"
+    class="beta pl-sticker pl-sticker--ember"
     data-testid="beta-badge"
     title="Porchlight is in private beta"
   >
     Beta
-  </ion-badge>
+  </span>
 </template>
 
 <style scoped>
 .beta {
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  --pl-tilt: -4deg;
   text-transform: uppercase;
-  vertical-align: middle;
-  margin-inline-start: 6px;
-  padding: 3px 6px;
-  border-radius: 999px;
+  font-size: 0.75rem;
 }
 </style>

@@ -20,7 +20,8 @@ test('/t/<town> lands on the explore page for the town', async ({ page }) => {
   await openExplore(page, `/t/${TOWN_KEY}`)
   await expect(page).toHaveURL(new RegExp(`/\\?town=${TOWN_KEY}$`))
   await expect(placeHeading(page)).toHaveText(TOWN_NAME)
-  await expect(page.locator('ion-content header p')).toHaveText(AREA_NAME)
+  // The context line is "<area> · <n> spooky houses".
+  await expect(page.locator('ion-content header p')).toHaveText(new RegExp(`^${AREA_NAME} · `))
   await expectOneExplorePage(page)
 })
 

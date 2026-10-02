@@ -2,7 +2,7 @@
 // The area / town / near-me results (SPEC F1). Reads usePinsStore directly;
 // the verified-only rule lives in the store (visibleListPins, canLoadMore).
 import { computed } from 'vue'
-import { IonButton, IonList, IonSpinner } from '@ionic/vue'
+import { IonButton, IonSpinner } from '@ionic/vue'
 import { alertCircleOutline, locateOutline, shieldCheckmarkOutline } from 'ionicons/icons'
 import StateMessage from '@/components/common/StateMessage.vue'
 import { useAppConfigStore } from '@/stores/appConfig'
@@ -80,7 +80,7 @@ function distance(id: string): number | null {
     />
 
     <template v-else>
-      <ion-list lines="full" class="py-0" data-testid="results">
+      <div class="grid grid-cols-2 gap-2.5 px-4 pt-1 pb-2" data-testid="results">
         <PinCard
           v-for="p in pins.visibleListPins"
           :key="p.id"
@@ -88,9 +88,9 @@ function distance(id: string): number | null {
           :distance-km="isNearMe ? distance(p.id) : null"
           @select="emit('select', $event)"
         />
-      </ion-list>
+      </div>
 
-      <p v-if="showCapNote" class="px-4 text-center text-sm opacity-80">
+      <p v-if="showCapNote" class="pl-muted px-4 text-center text-sm font-bold">
         Showing the closest {{ pins.listPins.length }}. Search a town to see more.
       </p>
 
@@ -104,9 +104,9 @@ function distance(id: string): number | null {
           {{ pins.loading ? 'Loading…' : 'Load more' }}
         </ion-button>
       </div>
-      <p v-if="appConfig.config.donateUrl && !pins.canLoadMore" class="donate px-4 pb-6 pt-2 text-center text-sm">
+      <p v-if="appConfig.config.donateUrl && !pins.canLoadMore" class="donate pl-muted px-4 pb-6 pt-2 text-center text-sm">
         Porchlight is free and made by a local. Like it?
-        <a :href="appConfig.config.donateUrl" target="_blank" rel="noopener" class="donate-link" data-testid="donate-footer"
+        <a :href="appConfig.config.donateUrl" target="_blank" rel="noopener" class="donate-link pl-link" data-testid="donate-footer"
           >Buy De Wet a bad decision 🍻</a
         >
       </p>
@@ -119,13 +119,11 @@ function distance(id: string): number | null {
   min-height: 44px;
 }
 .donate {
-  opacity: 0.75;
+  font-weight: 700;
 }
 .donate-link {
   display: inline-block;
   min-height: 44px;
   line-height: 44px;
-  color: var(--ion-color-primary);
-  font-weight: 600;
 }
 </style>

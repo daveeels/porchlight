@@ -35,14 +35,14 @@ function onTap(): void {
     <button
       v-if="chip && chip.action"
       type="button"
-      class="map-chip pointer-events-auto min-h-11 rounded-full px-4 text-sm font-semibold shadow-lg"
+      class="map-chip pointer-events-auto min-h-11 rounded-full px-4 text-sm"
       @click="onTap"
     >
       {{ chip.text }}
     </button>
     <div
       v-else-if="chip"
-      class="map-chip flex min-h-11 items-center rounded-full px-4 text-center text-sm font-semibold shadow-lg"
+      class="map-chip flex min-h-11 items-center rounded-full px-4 text-center text-sm"
       role="status"
     >
       {{ chip.text }}
@@ -52,6 +52,9 @@ function onTap(): void {
 
 <style scoped>
 .map-chip {
+  font-family: var(--pl-font-body);
+  font-weight: 800;
+  box-shadow: 0 3px 0 var(--pl-shadow);
   background: var(--ion-color-primary);
   color: var(--ion-color-primary-contrast);
   border: 0;

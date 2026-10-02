@@ -51,9 +51,19 @@ export async function openExplore(page: Page, path = '/'): Promise<void> {
   await expect(cards(page).first()).toBeVisible(FIRST_LOAD)
 }
 
-/** Text of each card's badge, in list order. */
+/** Each card's status ("Verified · …" / "Unverified · …", the words behind its sticker), in list order. */
 export async function badgeOrder(page: Page): Promise<string[]> {
-  return cards(page).locator('ion-badge').allTextContents()
+  return cardStatus(page).allTextContents()
+}
+
+/** The screen-reader status line of each card (or of the cards in `scope`). */
+export function cardStatus(page: Page, scope: Locator = cards(page)): Locator {
+  return scope.getByTestId('card-status')
+}
+
+/** The town line of each card. */
+export function cardTowns(page: Page): Locator {
+  return cards(page).locator('.town')
 }
 
 /** Clicks "Load more" until every page of the current list is loaded. */

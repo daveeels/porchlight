@@ -278,7 +278,7 @@ function toMyDisplay(): void {
         </template>
 
         <template v-else>
-          <p class="m-0 text-sm opacity-75" aria-live="polite">{{ stepLabel }}</p>
+          <p class="m-0 text-sm pl-muted" aria-live="polite">{{ stepLabel }}</p>
 
           <LocationStep v-if="step === 'location'" v-model="location" @next="nextStep" />
 

@@ -8,6 +8,8 @@ export interface SeasonTheme {
   mapStyle: string
   /** Marker colors for the map layer; the UI palette lives in theme/variables.css. */
   marker: { verified: string; unverified: string; cluster: string; clusterText: string }
+  /** Place heading count line: "1 spooky house" / "46 spooky houses". */
+  houses: [one: string, other: string]
   /** Emoji used on markers and empty states until custom icons exist. */
   icon: string
 }
@@ -17,14 +19,16 @@ export const SEASON_THEMES: Record<Season, SeasonTheme> = {
     label: 'Halloween',
     tagline: 'Spooky houses worth the drive',
     mapStyle: env.map.styles.HALLOWEEN,
-    marker: { verified: '#ff7a1a', unverified: '#9a6a4a', cluster: '#8b5cf6', clusterText: '#ffffff' },
+    marker: { verified: '#ffb547', unverified: '#8a7560', cluster: '#e8743b', clusterText: '#2a1a08' },
+    houses: ['spooky house', 'spooky houses'],
     icon: '🎃',
   },
   CHRISTMAS: {
     label: 'Christmas',
     tagline: 'Festive lights worth the drive',
     mapStyle: env.map.styles.CHRISTMAS,
-    marker: { verified: '#c62828', unverified: '#b08a8a', cluster: '#1b7f3b', clusterText: '#ffffff' },
+    marker: { verified: '#ffd27a', unverified: '#7d8a80', cluster: '#c8463c', clusterText: '#fff7ee' },
+    houses: ['festive house', 'festive houses'],
     icon: '🎄',
   },
 }

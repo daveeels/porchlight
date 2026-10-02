@@ -8,7 +8,7 @@ function popularRow(page: Page) {
   return page.getByRole('navigation', { name: 'Popular places' })
 }
 
-test('header Sign in is a light (clear) button with a 44 px tap target', async ({ page }) => {
+test('header Sign in is a light (clear, cream pill) button with a 44 px tap target', async ({ page }) => {
   await openExplore(page)
   const signIn = page.locator('ion-header ion-button', { hasText: 'Sign in' })
   await expect(signIn).toBeVisible()

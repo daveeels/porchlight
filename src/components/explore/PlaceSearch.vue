@@ -4,7 +4,7 @@
 // "Popular places" row sits under the box (hidden while the page shows town
 // chips instead); focusing the empty box lists more.
 import { computed, ref } from 'vue'
-import { IonButton, IonChip, IonItem, IonLabel, IonList, IonNote, IonSearchbar } from '@ionic/vue'
+import { IonButton, IonItem, IonLabel, IonList, IonNote, IonSearchbar } from '@ionic/vue'
 import { searchPlaces, type PlaceResult } from '@/lib/search'
 import { usePinsStore } from '@/stores/pins'
 import { useSeasonStore } from '@/stores/season'
@@ -77,6 +77,7 @@ function onCancel(): void {
   <div class="place-search">
     <ion-searchbar
       v-model="query"
+      class="pl-search"
       placeholder="Search a town or suburb"
       :debounce="0"
       show-cancel-button="focus"
@@ -89,8 +90,8 @@ function onCancel(): void {
       @keyup.enter="results[0] && choose(results[0])"
     />
     <div v-if="open" class="px-2 pb-2">
-      <p class="m-0 px-2 pb-1 text-xs font-semibold tracking-wide uppercase opacity-70">{{ heading }}</p>
-      <ion-list v-if="results.length" lines="none" class="rounded-lg py-0">
+      <p class="label pl-muted m-0 px-2 pb-1">{{ heading }}</p>
+      <ion-list v-if="results.length" lines="none" class="dropdown rounded-xl py-0">
         <ion-item
           v-for="r in results"
           :key="`${r.kind}:${r.key}`"
@@ -102,20 +103,20 @@ function onCancel(): void {
         >
           <ion-label>
             <span class="font-medium">{{ r.label }}</span>
-            <span class="opacity-70"> · {{ r.sublabel }}</span>
+            <span class="pl-muted"> · {{ r.sublabel }}</span>
           </ion-label>
           <ion-note slot="end">{{ r.count }}</ion-note>
         </ion-item>
       </ion-list>
-      <p v-else-if="pins.placeIndexLoading" class="m-0 px-2 py-3 text-sm opacity-80" role="status">Loading places…</p>
+      <p v-else-if="pins.placeIndexLoading" class="m-0 px-2 py-3 text-sm pl-muted" role="status">Loading places…</p>
       <div v-else-if="loadFailed" class="flex items-center gap-2 px-2 py-1">
         <p class="m-0 flex-1 text-sm" role="alert">Couldn't load places.</p>
         <ion-button fill="clear" size="small" class="tap" @mousedown.prevent @click="retryPlaces">Try again</ion-button>
       </div>
-      <p v-else-if="query.trim()" class="m-0 px-2 py-3 text-sm opacity-80">
+      <p v-else-if="query.trim()" class="m-0 px-2 py-3 text-sm pl-muted">
         No displays in a place matching “{{ query.trim() }}” yet.
       </p>
-      <p v-else class="m-0 px-2 py-3 text-sm opacity-80">No places with displays yet.</p>
+      <p v-else class="m-0 px-2 py-3 text-sm pl-muted">No places with displays yet.</p>
     </div>
 
     <div v-else-if="loadFailed" class="flex items-center gap-2 px-4 pb-2">
@@ -124,22 +125,12 @@ function onCancel(): void {
     </div>
 
     <nav v-else-if="popular.length" aria-label="Popular places" class="pb-2">
-      <p class="m-0 px-4 pb-1 text-xs font-semibold tracking-wide uppercase opacity-70">Popular places</p>
+      <p class="label pl-muted m-0 px-4 pb-0.5">Popular places</p>
       <!-- Padding on the scroller (as in TownChips) so chips scroll to the screen edge. -->
-      <div class="popular flex gap-2 overflow-x-auto px-3">
-        <ion-chip
-          v-for="r in popular"
-          :key="`${r.kind}:${r.key}`"
-          outline
-          class="chip"
-          role="button"
-          tabindex="0"
-          @click="choose(r)"
-          @keydown.enter.prevent="choose(r)"
-          @keydown.space.prevent="choose(r)"
-        >
-          <ion-label>{{ r.label }}</ion-label>
-        </ion-chip>
+      <div class="pl-scroll-row flex gap-2 overflow-x-auto px-4">
+        <button v-for="r in popular" :key="`${r.kind}:${r.key}`" type="button" class="pl-chip" @click="choose(r)">
+          <span class="pl-chip-face">{{ r.label }}</span>
+        </button>
       </div>
     </nav>
   </div>
@@ -181,22 +172,20 @@ function onCancel(): void {
   min-height: 44px;
   margin: 0;
 }
-.popular {
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
+.pl-search {
+  padding-inline: 16px;
+  padding-top: 10px;
+  padding-bottom: 8px;
 }
-.popular::-webkit-scrollbar {
-  display: none;
+.label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
-.chip {
-  flex: none;
-  min-height: 44px;
-  min-width: 44px;
-  justify-content: center;
-  margin: 0;
-}
-.chip:focus-visible {
-  outline: 2px solid var(--ion-color-primary);
-  outline-offset: 2px;
+.dropdown {
+  background: var(--pl-surface);
+  border: 1px solid var(--pl-line);
+  overflow: hidden;
 }
 </style>

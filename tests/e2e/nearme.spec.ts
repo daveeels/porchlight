@@ -1,6 +1,6 @@
 // Near me (SPEC F1) with mocked geolocation.
 import { expect, test } from '@playwright/test'
-import { MOUNT_MAUNGANUI, cards, openExplore, placeHeading, snap } from './helpers'
+import { MOUNT_MAUNGANUI, cardTowns, cards, openExplore, placeHeading, snap } from './helpers'
 
 /** "Mount Maunganui · 350 m" → metres. */
 function metres(line: string): number {
@@ -16,9 +16,9 @@ test.describe('location allowed', () => {
     await openExplore(page)
     await page.locator('ion-button', { hasText: 'Near me' }).click()
     await expect(placeHeading(page)).toHaveText('Near you')
-    await expect(cards(page).first()).toContainText('·')
+    await expect(cardTowns(page).first()).toContainText('·')
 
-    const lines = await cards(page).locator('ion-label > p').allTextContents()
+    const lines = await cardTowns(page).allTextContents()
     expect(lines.length).toBeGreaterThan(3)
     const d = lines.map(metres)
     expect(d).toEqual([...d].sort((a, b) => a - b))
