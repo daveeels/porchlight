@@ -24,7 +24,9 @@
     "events:create": "tsx scripts/createEvents.ts",
     "testers": "tsx scripts/setTesters.ts",
     "admin": "tsx scripts/setAdmin.ts",
-    "moderate": "tsx scripts/moderate.ts"
+    "moderate": "tsx scripts/moderate.ts",
+    "smoke:prod": "node scripts/prod-smoke.mjs",
+    "demo:seed": "tsx scripts/seedDemo.ts"
   },
   "dependencies": {
     "@fontsource/lilita-one": "^5.3.0",

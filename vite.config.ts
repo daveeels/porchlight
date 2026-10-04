@@ -74,6 +74,28 @@ function noindex(): Plugin {
 
 export default defineConfig({
   plugins: [vue(), tailwindcss(), VitePWA(pwa), noindex()],
+  build: {
+    rolldownOptions: {
+      output: {
+        // 2026-10-02 production outage: Rolldown hoisted its __export helper
+        // into our own `pins` chunk, which Ionic's hardware-back-button chunk
+        // imports, while `pins` (indirectly) imports Ionic — a chunk cycle,
+        // so Ionic ran before the helper existed ("e is not a function") and
+        // the app was a blank screen. Libraries get their own chunks so they
+        // never depend on app chunks, and strict execution order keeps any
+        // remaining cycles safe. The dev server doesn't bundle, so only a
+        // production build can show this — see tests/e2e/prod-smoke.
+        strictExecutionOrder: true,
+        codeSplitting: {
+          groups: [
+            { name: 'ionic', test: /node_modules[\\/](@ionic|@stencil|ionicons)[\\/]/ },
+            { name: 'vue', test: /node_modules[\\/](vue|@vue|vue-router|pinia)[\\/]/ },
+            { name: 'firebase', test: /node_modules[\\/](firebase|@firebase|idb|tslib)[\\/]/ },
+          ],
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

@@ -65,7 +65,11 @@ async function openMenu(): Promise<void> {
   font-weight: 800;
   font-size: 0.875rem;
 }
+/* Ionic colours buttons inside a toolbar with --ion-toolbar-color (cream),
+   ignoring --color, which made "Sign in" cream-on-cream (blank pill) in
+   production. Set the text colour on the native part directly. */
 .sign-in::part(native) {
+  color: var(--pl-on-primary);
   height: 34px;
   min-height: 0;
   margin-block: 5px;

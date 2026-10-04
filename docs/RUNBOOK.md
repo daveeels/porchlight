@@ -231,3 +231,20 @@ done
 ```
 
 All should print `204`. For any that don't, grant `roles/run.invoker` to `allUsers` on that Cloud Run service (Cloud Run → service → Permissions → Add principal `allUsers`, role *Cloud Run Invoker*). This is the normal setting for Firebase callables: auth, the beta gate and App Check are still enforced inside the function.
+
+## Before every hosting deploy: production smoke test
+
+```
+npm run smoke:prod
+```
+
+It builds exactly what we deploy (`build:beta`), serves it, and opens it in Chromium and WebKit, failing on any page error. The E2E suite runs against the Vite dev server, which doesn't bundle, so bundling bugs only show here. On 2026-10-02 a Rolldown chunk cycle (Ionic's code importing a helper that had been hoisted into our own `pins` chunk) made the live app a blank black screen while every E2E test passed. Fixed in `vite.config.ts` with library chunk groups plus `strictExecutionOrder`. Only deploy when this prints "Production smoke test passed."
+
+## Demo displays (beta only)
+
+The live beta has 18 clearly marked demo displays around Tauranga (owner ids starting `demo`, description ends "Demo display for the Porchlight beta."), added with `npm run demo:seed -- --apply`. **Remove them on launch day, before announcing:**
+
+```
+npm run demo:seed -- --remove            # dry run: shows how many
+npm run demo:seed -- --remove --apply    # deletes the pins, their votes/reports and photos, then recounts placeIndex
+```
