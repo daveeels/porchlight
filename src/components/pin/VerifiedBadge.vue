@@ -1,13 +1,14 @@
 <script setup lang="ts">
-// The tilted "✓ Verified" pill (or a cream "Unverified" one) in the pin sheet
-// and the add-display preview.
+// The tilted "✓ Verified" pill (or a cream "Unverified" / "Coming soon" one)
+// in the pin sheet and the add-display preview.
 import { IonBadge } from '@ionic/vue'
 
-defineProps<{ verified: boolean }>()
+defineProps<{ verified: boolean; comingSoon?: boolean }>()
 </script>
 
 <template>
-  <ion-badge v-if="verified" class="badge">✓ Verified</ion-badge>
+  <ion-badge v-if="comingSoon" class="badge unverified">Coming soon</ion-badge>
+  <ion-badge v-else-if="verified" class="badge">✓ Verified</ion-badge>
   <ion-badge v-else class="badge unverified">Unverified</ion-badge>
 </template>
 

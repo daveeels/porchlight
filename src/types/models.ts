@@ -40,6 +40,8 @@ export type PinStatus = 'ACTIVE' | 'HIDDEN' | 'REMOVED' | 'ARCHIVED'
 export type HiddenReason = 'REPORTS' | 'NOT_THERE'
 export type RemovedBy = 'OWNER' | 'ADMIN'
 export type ModerationDecision = 'NONE' | 'APPROVED' | 'REJECTED'
+/** COMING_SOON: added before the decorations are up — no votes until READY. Missing (older pins) = READY. */
+export type PinStage = 'COMING_SOON' | 'READY'
 
 export interface PinPlace {
   areaKey: string | null
@@ -58,10 +60,12 @@ export interface DisplayPin {
   seasonYear: number
   title: string
   description: string | null
-  photoPath: string
-  thumbPath: string
-  photoUrl: string
-  thumbUrl: string
+  /** null only for a COMING_SOON pin added without a photo. */
+  photoPath: string | null
+  thumbPath: string | null
+  photoUrl: string | null
+  thumbUrl: string | null
+  stage?: PinStage
   geo: GeoPoint
   geohash: string
   place: PinPlace
@@ -91,6 +95,10 @@ export interface DisplayPin {
 
 /** A pin as used in the UI: document data plus its id. */
 export type Pin = DisplayPin & { id: string }
+
+export function isComingSoon(pin: Pick<DisplayPin, 'stage'>): boolean {
+  return pin.stage === 'COMING_SOON'
+}
 
 export type VoteValue = 'HERE' | 'NOT_THERE'
 

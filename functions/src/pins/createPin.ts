@@ -25,10 +25,12 @@ import { coveredPlace, lookupPlace, type PinPlace } from '../lib/places.js'
 import { takeRateLimit, type RateLimitDoc } from '../lib/rateLimit.js'
 import { assertNotBanned, assertTermsAccepted, lookupAuthUser, userFromSnap, type UserDoc } from '../lib/users.js'
 import { parseCreatePinInput, uploadIdOf, type CreatePinInput } from '../lib/validation.js'
-import { pinIdFor, type HolidayEventDoc, type PinDoc } from './model.js'
+import { pinIdFor, rankScoreOf, type HolidayEventDoc, type PinDoc } from './model.js'
 import { deleteOldPhotos, discardPhoto, readAll, refs, type Refs, type Snaps } from './shared.js'
 
 export const MAX_CREATES_PER_EVENT = 3
+
+const NO_PHOTO = { photoPath: null, thumbPath: null, photoUrl: null, thumbUrl: null }
 
 export interface CreatePinResult {
   pinId: string
@@ -81,7 +83,8 @@ interface NewPin {
   eventId: string
   title: string
   description: string | null
-  photo: StoredPhoto
+  photo: StoredPhoto | null
+  comingSoon: boolean
   geo: { lat: number; lng: number }
   geohash: string
   place: PinPlace
@@ -96,7 +99,8 @@ function writeAll(tx: Transaction, r: Refs, c: Checked, p: NewPin, now: Date): v
     seasonYear: c.event.seasonYear,
     title: p.title,
     description: p.description,
-    ...p.photo,
+    ...(p.photo ?? NO_PHOTO),
+    stage: p.comingSoon ? 'COMING_SOON' : 'READY',
     geo: new GeoPoint(p.geo.lat, p.geo.lng),
     geohash: p.geohash,
     place: p.place,
@@ -109,7 +113,7 @@ function writeAll(tx: Transaction, r: Refs, c: Checked, p: NewPin, now: Date): v
     notThereVotes: 0,
     verified: false,
     reportsCount: 0,
-    rankScore: 0,
+    rankScore: rankScoreOf({ stage: p.comingSoon ? 'COMING_SOON' : 'READY', isFeatured: false, verified: false, hereVotes: 0, notThereVotes: 0 }),
     isFeatured: false,
     featuredUntil: null,
     moderation: { decision: 'NONE', reviewedBy: null, reviewedAt: null, note: null },
@@ -130,7 +134,7 @@ function writeAll(tx: Transaction, r: Refs, c: Checked, p: NewPin, now: Date): v
 }
 
 /** Step 4: a REMOVED pin is being replaced — drop its old votes, reports and photos. */
-async function clearRemovedPin(r: Refs, old: PinDoc, photo: StoredPhoto): Promise<void> {
+async function clearRemovedPin(r: Refs, old: PinDoc, photo: StoredPhoto | null): Promise<void> {
   const firestore = db()
   await firestore.recursiveDelete(r.pin.collection('votes'))
   await firestore.recursiveDelete(r.pin.collection('reports'))
@@ -191,7 +195,7 @@ export async function createPin(callerIn: Caller | null, data: unknown): Promise
     const geohash = geohashForLocation([geo.lat, geo.lng], 9)
 
     // 3. Photo, outside any transaction.
-    photo = await processUpload(uid, input.uploadId, pinId)
+    if (input.uploadId) photo = await processUpload(uid, input.uploadId, pinId)
 
     // 4. Re-create over a REMOVED pin (the pre-check passed, so it isn't blocked).
     if (pre.existing?.status === 'REMOVED') await clearRemovedPin(r, pre.existing, photo)
@@ -203,6 +207,7 @@ export async function createPin(callerIn: Caller | null, data: unknown): Promise
       title: input.title,
       description: input.description,
       photo,
+      comingSoon: input.comingSoon,
       geo,
       geohash,
       place,
@@ -220,6 +225,6 @@ export async function createPin(callerIn: Caller | null, data: unknown): Promise
     if (photo) await discardPhoto(r.pin, photo)
     throw err
   } finally {
-    await deleteUpload(uid, input.uploadId)
+    if (input.uploadId) await deleteUpload(uid, input.uploadId)
   }
 }

@@ -4,7 +4,7 @@
 // 2. one transaction reading users/{uid}, rateLimits/{uid}, the pin and
 //    pins/{pinId}/votes/{uid} first. A vote whose round != pin.voteRound is no vote.
 // 3. checks: not banned, community rules agreed (TERMS_REQUIRED), castVote
-//    < 40 today, pin ACTIVE, caller isn't the owner. Same value as the current-round vote → no-op (nothing written).
+//    < 40 today, pin ACTIVE, caller isn't the owner, pin not COMING_SOON (NOT_VOTABLE). Same value as the current-round vote → no-op (nothing written).
 // 4. counted = the current-round vote's `counted` when changing, else countedIfNew
 // 5–6. counted votes move the counters; recompute verified + rankScore; the
 //    F7 "not there" rule moves ACTIVE → HIDDEN (hiddenReason 'NOT_THERE')
@@ -13,6 +13,7 @@ import type { DocumentReference, DocumentSnapshot } from 'firebase-admin/firesto
 import { db, Timestamp } from '../lib/admin.js'
 import { assertCanWrite } from '../lib/beta.js'
 import { requireAuth, type Caller } from '../lib/caller.js'
+import { fail } from '../lib/errors.js'
 import { takeRateLimit, type RateLimitDoc } from '../lib/rateLimit.js'
 import { tallyVote, type CurrentVote } from '../lib/thresholds.js'
 import { assertNotBanned, assertTermsAccepted, lookupAuthUser, userFromSnap, type UserDoc } from '../lib/users.js'
@@ -73,6 +74,9 @@ export async function castVote(callerIn: Caller | null, data: unknown): Promise<
     assertTermsAccepted(user)
     const rateLimit = takeRateLimit(rateSnap.data(), 'castVote', now)
     const pin = engageablePin(pinSnap, uid, 'vote')
+    if (pin.stage === 'COMING_SOON') {
+      fail('NOT_VOTABLE', 'failed-precondition', 'Voting opens when the decorations are up.')
+    }
     const round = typeof pin.voteRound === 'number' ? pin.voteRound : 0
     const current = currentVoteOf(voteSnap.data(), round)
 

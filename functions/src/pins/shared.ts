@@ -72,7 +72,7 @@ export async function discardPhoto(pinRef: DocumentReference<PinDoc>, photo: Sto
 }
 
 /** Best effort: delete the stored photo folder(s) of an old pin version. */
-export async function deleteOldPhotos(pin: Pick<PinDoc, 'photoPath' | 'thumbPath'>, keep?: StoredPhoto): Promise<void> {
+export async function deleteOldPhotos(pin: Pick<PinDoc, 'photoPath' | 'thumbPath'>, keep?: StoredPhoto | null): Promise<void> {
   const keepFolder = keep ? folderOf(keep.photoPath) : null
   const folders = new Set([folderOf(pin.photoPath), folderOf(pin.thumbPath)])
   for (const folder of folders) {

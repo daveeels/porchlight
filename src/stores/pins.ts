@@ -3,7 +3,7 @@ import { computed, ref, shallowRef } from 'vue'
 import { cellsAround, distanceKm } from '@/lib/geoCells'
 import { fetchCellPins, fetchPin, fetchPlacePage, type PageCursor } from '@/services/pins'
 import { fetchPlaceIndex } from '@/services/places'
-import type { EventId, Pin, PlaceIndex, PlaceSelection } from '@/types/models'
+import { isComingSoon, type EventId, type Pin, type PlaceIndex, type PlaceSelection } from '@/types/models'
 import { useSeasonStore } from './season'
 
 /** Cell cache lifetime (SPEC F2). */
@@ -230,7 +230,8 @@ export const usePinsStore = defineStore('pins', () => {
       const here = { lat, lng }
       listPins.value = pins
         .map((p) => ({ p, d: distanceKm(here, pinLatLng(p)) }))
-        .sort((a, b) => a.d - b.d)
+        // Nearest first, but Coming soon after every ready display (as in the ranked lists).
+        .sort((a, b) => Number(isComingSoon(a.p)) - Number(isComingSoon(b.p)) || a.d - b.d)
         .slice(0, NEAR_ME_CAP)
         .map((x) => x.p)
       nearMeTruncated.value = truncated

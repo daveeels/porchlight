@@ -19,13 +19,19 @@ export function isVerified(hereVotes: number, notThereVotes: number): boolean {
 }
 
 export interface RankInput {
+  /** COMING_SOON pins list after every ready display. */
+  stage?: 'COMING_SOON' | 'READY'
   isFeatured: boolean
   verified: boolean
   hereVotes: number
   notThereVotes: number
 }
 
+/** Below any ready display (ready scores can dip a little below 0 before hiding). */
+export const COMING_SOON_RANK = -1_000_000
+
 export function rankScoreOf(pin: RankInput): number {
+  if (pin.stage === 'COMING_SOON') return COMING_SOON_RANK
   return (pin.isFeatured ? 100000 : 0) + (pin.verified ? 10000 : 0) + pin.hereVotes - pin.notThereVotes
 }
 
@@ -86,7 +92,7 @@ export function tallyVote(
     else notThereVotes += 1
   }
   const verified = isVerified(hereVotes, notThereVotes)
-  const rankScore = rankScoreOf({ isFeatured: pin.isFeatured === true, verified, hereVotes, notThereVotes })
+  const rankScore = rankScoreOf({ stage: pin.stage, isFeatured: pin.isFeatured === true, verified, hereVotes, notThereVotes })
   const hide = !noop && counted && hiddenByNotThere(hereVotes, notThereVotes, pin.moderation?.decision)
   return { noop, counted, hereVotes, notThereVotes, verified, rankScore, hide }
 }

@@ -2,6 +2,7 @@
 // HIDDEN), but not while hidden for REPORTS (the reported content stays as it
 // is until a moderator decides); before the event's expiresAt; 10 a day.
 // Location is never editable. Any change resets moderation.decision to 'NONE'.
+// lightsUp (with a new photo) moves a COMING_SOON pin to READY, which opens voting.
 // A new photo goes to a new versioned path and starts a new vote round in the
 // same transaction; old photos and old-round votes are deleted afterwards as
 // cleanup only. The checks also run read-only before sharp, so a call that
@@ -88,8 +89,10 @@ export async function updatePin(callerIn: Caller | null, data: unknown): Promise
       if (input.description !== undefined && input.description !== pin.description) {
         update.description = input.description
       }
+      const stage = input.lightsUp ? 'READY' : (pin.stage ?? 'READY')
+      if (stage !== (pin.stage ?? 'READY')) update.stage = stage
       if (photo) {
-        const next = { ...pin, hereVotes: 0, notThereVotes: 0, verified: false }
+        const next = { ...pin, stage, hereVotes: 0, notThereVotes: 0, verified: false }
         Object.assign(update, photo, {
           voteRound: pin.voteRound + 1,
           hereVotes: 0,

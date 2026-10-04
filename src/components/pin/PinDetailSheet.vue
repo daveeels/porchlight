@@ -14,7 +14,8 @@ import { googleMapsUrl, openInMaps } from '@/lib/mapsLink'
 import { useAppConfigStore } from '@/stores/appConfig'
 import { useAuthStore } from '@/stores/auth'
 import { usePinsStore } from '@/stores/pins'
-import type { Pin } from '@/types/models'
+import { isComingSoon, type Pin } from '@/types/models'
+import ComingSoonArt from './ComingSoonArt.vue'
 import VerifiedBadge from './VerifiedBadge.vue'
 import ReportButton from './ReportButton.vue'
 import VoteBar from './VoteBar.vue'
@@ -43,6 +44,8 @@ const pin = computed(() => {
   if (!p) return null
   return p.status === 'ACTIVE' || isOwn.value ? p : null
 })
+const soon = computed(() => !!pin.value && isComingSoon(pin.value))
+
 const notFound = computed(
   () => pins.selectedPinNotFound || (!!pins.selectedPin && !pin.value && !pins.selectedPinLoading),
 )
@@ -149,16 +152,20 @@ async function share(): Promise<void> {
            title so it's on screen at the sheet's first (40%) height; the
            description, Maps, Share and Report follow. -->
       <article v-else class="pb-6">
-        <img :src="pin.photoUrl" :alt="`Photo of ${pin.title}`" class="hero block w-full object-cover" />
+        <img v-if="pin.photoUrl" :src="pin.photoUrl" :alt="`Photo of ${pin.title}`" class="hero block w-full object-cover" />
+        <div v-else class="hero"><ComingSoonArt label /></div>
 
         <div class="panel flex flex-col gap-3">
           <header class="flex flex-col items-start gap-1" data-testid="pin-counts">
-            <VerifiedBadge :verified="pin.verified" class="mb-1" />
+            <VerifiedBadge :verified="pin.verified" :coming-soon="soon" class="mb-1" />
             <h2 class="title pl-display m-0">{{ pin.title }}</h2>
             <p class="pl-muted m-0 text-sm font-bold">{{ placeLine(pin) }}</p>
             <!-- One text run with a no-break space before the dot, so a wrap at
                  phone width never starts a line with "·". -->
-            <p class="pl-muted m-0 text-sm font-bold">
+            <p v-if="soon" class="pl-muted m-0 text-sm font-bold" data-testid="coming-soon-note">
+              Decorations aren't up yet. Voting opens when they are.
+            </p>
+            <p v-else class="pl-muted m-0 text-sm font-bold">
               {{ hereCountLong(pin.hereVotes)
               }}<span v-if="pin.notThereVotes > 0">&nbsp;· {{ notThereCountLong(pin.notThereVotes) }}</span>
             </p>
@@ -167,7 +174,7 @@ async function share(): Promise<void> {
           <p v-if="isOwn" class="own m-0 rounded-xl p-3 text-sm font-bold" role="note" data-testid="own-pin-note">
             {{ pin.status === 'ACTIVE' ? 'This is your display.' : "This is your display. It isn't currently shown to other people." }}
           </p>
-          <VoteBar v-else :pin="pin" :report="false" @gone="onGone" />
+          <VoteBar v-else-if="!soon" :pin="pin" :report="false" @gone="onGone" />
 
           <p v-if="pin.description" class="m-0 whitespace-pre-line">{{ pin.description }}</p>
 

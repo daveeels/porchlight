@@ -132,6 +132,13 @@ describe('castVote', () => {
     expect(result).toMatchObject({ notThereVotes: 8, status: 'HIDDEN' })
   })
 
+  it('NOT_VOTABLE while a display is Coming soon', async () => {
+    const pinId = await seedPin(undefined, undefined, { stage: 'COMING_SOON', rankScore: -1_000_000 })
+    const [a] = await voters(1)
+    await expectReason(castVote(a!, { pinId, value: 'HERE' }), 'NOT_VOTABLE')
+    expect((await voteDoc(pinId, a!.uid).get()).exists).toBe(false)
+  })
+
   it('rejects a vote on your own pin', async () => {
     const owner = await account('google')
     const pinId = await seedPin(owner.uid)

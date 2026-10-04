@@ -21,7 +21,7 @@ import { useAppConfigStore } from '@/stores/appConfig'
 import { FOCUS_ZOOM, useMapStore, type FocusRequest } from '@/stores/map'
 import { usePinsStore } from '@/stores/pins'
 import { useSeasonStore } from '@/stores/season'
-import type { Pin, Season } from '@/types/models'
+import { isComingSoon, type Pin, type Season } from '@/types/models'
 
 export type MapStatus = 'idle' | 'loading' | 'ready' | 'error'
 export type LocateError = 'denied' | 'unavailable'
@@ -59,6 +59,8 @@ interface PointGeometry {
 export interface PinFeatureProps {
   id: string
   verified: boolean
+  /** Coming soon: drawn faint, under the ready displays. */
+  soon: boolean
   isFeatured: boolean
   title: string
 }
@@ -83,7 +85,7 @@ export function pinsToFeatureCollection(
     features: shown.map((p) => ({
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: [p.geo.longitude, p.geo.latitude] as [number, number] },
-        properties: { id: p.id, verified: p.verified, isFeatured: p.isFeatured, title: p.title },
+        properties: { id: p.id, verified: p.verified, soon: isComingSoon(p), isFeatured: p.isFeatured, title: p.title },
       })),
   }
 }
@@ -182,8 +184,12 @@ function pinLayer(theme: SeasonTheme, haveImages: boolean): AddLayerObject {
         'icon-image': ['case', ['==', ['get', 'verified'], true], MARKER_IMAGE.verified, MARKER_IMAGE.unverified],
         'icon-allow-overlap': true,
         'icon-ignore-placement': true,
-        // Verified drawn last, i.e. on top.
-        'symbol-sort-key': ['case', ['==', ['get', 'verified'], true], 1, 0],
+        // Verified drawn last, i.e. on top; Coming soon first, underneath.
+        'symbol-sort-key': ['case', ['==', ['get', 'verified'], true], 1, ['==', ['get', 'soon'], true], -1, 0],
+        'icon-size': ['case', ['==', ['get', 'soon'], true], 0.8, 1],
+      },
+      paint: {
+        'icon-opacity': ['case', ['==', ['get', 'soon'], true], 0.45, 1],
       },
     }
   }
@@ -196,7 +202,7 @@ function pinLayer(theme: SeasonTheme, haveImages: boolean): AddLayerObject {
     paint: {
       'circle-radius': 9,
       'circle-color': ['case', ['==', ['get', 'verified'], true], theme.marker.verified, theme.marker.unverified],
-      'circle-opacity': ['case', ['==', ['get', 'verified'], true], 1, 0.55],
+      'circle-opacity': ['case', ['==', ['get', 'verified'], true], 1, ['==', ['get', 'soon'], true], 0.3, 0.55],
       'circle-stroke-width': 2,
       'circle-stroke-color': '#ffffff',
     },

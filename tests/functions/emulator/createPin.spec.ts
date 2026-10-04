@@ -34,6 +34,44 @@ beforeAll(async () => {
   await seedEvent(EVENT)
 })
 
+describe('createPin Coming soon', () => {
+  it('needs no photo; ranks below ready displays; unverified', async () => {
+    const user = await newUser()
+    const input = createInput(EVENT, '', { comingSoon: true })
+    delete (input as Record<string, unknown>).uploadId
+    const { pinId } = await createPin(user, input)
+    expect((await pinRef(pinId).get()).data()).toMatchObject({
+      stage: 'COMING_SOON',
+      status: 'ACTIVE',
+      photoPath: null,
+      thumbPath: null,
+      photoUrl: null,
+      thumbUrl: null,
+      verified: false,
+      rankScore: -1_000_000,
+    })
+    expect(await filesUnder(`photos/${pinId}/`)).toEqual([])
+  })
+
+  it('takes an optional photo', async () => {
+    const user = await newUser()
+    const uploadId = await upload(user.uid)
+    const { pinId } = await createPin(user, createInput(EVENT, uploadId, { comingSoon: true }))
+    expect((await pinRef(pinId).get()).data()).toMatchObject({
+      stage: 'COMING_SOON',
+      photoPath: `photos/${pinId}/${uploadId}/full.webp`,
+    })
+  })
+
+  it('a ready display still needs a photo; comingSoon must be a boolean', async () => {
+    const user = await newUser()
+    const input = createInput(EVENT, '')
+    delete (input as Record<string, unknown>).uploadId
+    await expectReason(createPin(user, input), 'INVALID_INPUT')
+    await expectReason(createPin(user, createInput(EVENT, newUploadId(), { comingSoon: 'yes' })), 'INVALID_INPUT')
+  })
+})
+
 describe('createPin happy path', () => {
   it('creates an ACTIVE, unverified, offset pin with a cleaned photo', async () => {
     const user = await newUser()
@@ -68,6 +106,7 @@ describe('createPin happy path', () => {
       verified: false,
       reportsCount: 0,
       rankScore: 0,
+      stage: 'READY',
       isFeatured: false,
       featuredUntil: null,
       moderation: { decision: 'NONE', reviewedBy: null, reviewedAt: null, note: null },

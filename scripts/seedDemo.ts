@@ -131,6 +131,7 @@ async function seed(): Promise<void> {
       thumbPath: thumb!.path,
       photoUrl: full!.url,
       thumbUrl: thumb!.url,
+      stage: 'READY',
       geo: new GeoPoint(s.lat, s.lng),
       geohash: geohashForLocation([s.lat, s.lng], 9),
       place,

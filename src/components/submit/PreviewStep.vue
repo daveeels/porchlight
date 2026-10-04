@@ -3,6 +3,7 @@
 // with progress and create/update the pin.
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { IonButton, IonProgressBar, IonSpinner } from '@ionic/vue'
+import ComingSoonArt from '@/components/pin/ComingSoonArt.vue'
 import VerifiedBadge from '@/components/pin/VerifiedBadge.vue'
 import type { SubmitProgress } from '@/stores/myPin'
 
@@ -14,6 +15,8 @@ const props = defineProps<{
   description: string
   town?: string | null
   editing?: boolean
+  /** Shown as Coming soon (no votes yet). */
+  comingSoon?: boolean
   busy: boolean
   progress: SubmitProgress | null
   /** False after a final error (e.g. BETA_ONLY): submitting again can't help. */
@@ -49,16 +52,22 @@ const progressLabel = computed(() => {
 
     <article class="card overflow-hidden rounded-xl" data-testid="preview-card">
       <img v-if="imageUrl" :src="imageUrl" alt="Your display photo" class="photo block w-full object-cover" />
+      <div v-else-if="comingSoon" class="photo"><ComingSoonArt label /></div>
       <div class="flex flex-col gap-1 p-3">
         <h3 class="pl-display m-0 text-2xl break-words">{{ title.trim() }}</h3>
         <p v-if="town" class="m-0 text-sm pl-muted">{{ town }}</p>
-        <div><VerifiedBadge :verified="false" /></div>
+        <div><VerifiedBadge :verified="false" :coming-soon="comingSoon" /></div>
         <p v-if="description.trim()" class="m-0 mt-1 text-sm whitespace-pre-line break-words">{{ description.trim() }}</p>
       </div>
     </article>
 
     <p class="m-0 text-sm pl-muted">
       <template v-if="editing">Location can't be changed. To move it, delete your display and add it again.</template>
+      <template v-else-if="comingSoon">
+        It goes live straight away as Coming soon, listed after the displays that are up. When your decorations are
+        up, tap “My lights are up!” on My display and add a photo to open voting. The location is shown about 25–50 m
+        from where you put the pin.
+      </template>
       <template v-else>
         New displays go live straight away as Unverified. The location is shown about 25–50 m from where you put the
         pin, and we remove all hidden data (like GPS) from your photo.

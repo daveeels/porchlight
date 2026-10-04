@@ -9,11 +9,19 @@ export interface PinStatusInfo {
   tone: StatusTone
 }
 
-type StatusFields = Pick<DisplayPin, 'status' | 'verified' | 'hiddenReason' | 'removedBy'>
+type StatusFields = Pick<DisplayPin, 'status' | 'verified' | 'hiddenReason' | 'removedBy'> &
+  Partial<Pick<DisplayPin, 'stage'>>
 
 export function pinStatusInfo(pin: StatusFields): PinStatusInfo {
   switch (pin.status) {
     case 'ACTIVE':
+      if (pin.stage === 'COMING_SOON') {
+        return {
+          label: 'Live – Coming soon',
+          detail: 'People can find it, listed after the displays that are up. Voting opens once you add a photo of your decorations.',
+          tone: 'medium',
+        }
+      }
       return pin.verified
         ? {
             label: 'Live – Verified',

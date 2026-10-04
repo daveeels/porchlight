@@ -126,7 +126,7 @@ describe('pinsToFeatureCollection', () => {
     const fc = pinsToFeatureCollection(pins, false)
     expect(fc.features).toHaveLength(2)
     expect(fc.features[0]!.geometry.coordinates).toEqual([176.2, -37.7])
-    expect(fc.features[1]!.properties).toEqual({ id: 'b', verified: false, isFeatured: true, title: 'B' })
+    expect(fc.features[1]!.properties).toEqual({ id: 'b', verified: false, soon: false, isFeatured: true, title: 'B' })
   })
 
   it('verified only drops unverified pins', () => {

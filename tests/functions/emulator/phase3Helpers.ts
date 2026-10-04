@@ -90,6 +90,7 @@ export async function seedPin(
     thumbPath: `${folder}thumb.webp`,
     photoUrl: 'https://example.com/full.webp',
     thumbUrl: 'https://example.com/thumb.webp',
+    stage: 'READY',
     geo: new GeoPoint(-37.7, 176.29),
     geohash: 'rckq2zzzz',
     place: PAPAMOA_PLACE,

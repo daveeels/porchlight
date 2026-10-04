@@ -5,6 +5,7 @@ import { computed } from 'vue'
 import { IonBadge } from '@ionic/vue'
 import { hereCountLong, placeLine } from '@/components/pin/format'
 import type { Pin } from '@/types/models'
+import ComingSoonArt from '@/components/pin/ComingSoonArt.vue'
 import { pinStatusInfo } from './status'
 
 const props = defineProps<{ pin: Pin }>()
@@ -20,6 +21,7 @@ const live = computed(() => props.pin.status === 'ACTIVE')
       :alt="`Photo of ${pin.title}`"
       class="photo block w-full object-cover"
     />
+    <div v-else-if="pin.stage === 'COMING_SOON' && pin.status !== 'REMOVED'" class="photo"><ComingSoonArt label /></div>
     <div class="flex flex-col gap-2 p-4">
       <h2 class="pl-display m-0 text-2xl break-words">{{ pin.title }}</h2>
       <p class="m-0 text-sm pl-muted">{{ placeLine(pin) }}</p>

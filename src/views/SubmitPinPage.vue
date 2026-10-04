@@ -5,6 +5,9 @@
 // Each step after the first has a Back history entry (src/lib/backStack), so
 // the phone's Back goes to the previous step with everything kept; on the
 // first step Back leaves the page as before.
+// Coming soon: a new display can be marked "My decorations aren't up yet"
+// (photo optional, no votes). /submit?edit=1&lightsUp=1 ("My lights are up!")
+// asks for a decorated photo and turns it into a ready display.
 import { computed, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
@@ -51,6 +54,7 @@ const auth = useAuthStore()
 const terms = useTermsStore()
 
 const isEdit = computed(() => route.query.edit === '1')
+const lightsUp = computed(() => isEdit.value && route.query.lightsUp === '1')
 const steps = computed<Step[]>(() =>
   isEdit.value ? ['photo', 'details', 'preview'] : ['location', 'photo', 'details', 'preview'],
 )
@@ -61,6 +65,7 @@ const photo = shallowRef<PreparedImage | null>(null)
 const title = ref('')
 const description = ref('')
 const consent = ref(false)
+const comingSoon = ref(false)
 const busy = ref(false)
 const progress = ref<SubmitProgress | null>(null)
 const submitError = shallowRef<PinWriteError | null>(null)
@@ -104,6 +109,7 @@ function reset(): void {
   title.value = ''
   description.value = ''
   consent.value = false
+  comingSoon.value = false
   busy.value = false
   progress.value = null
   submitError.value = null
@@ -111,7 +117,7 @@ function reset(): void {
 }
 
 async function prepare(force = false): Promise<void> {
-  const key = `${auth.uid ?? ''}:${isEdit.value ? 'edit' : 'create'}`
+  const key = `${auth.uid ?? ''}:${lightsUp.value ? 'lightsUp' : isEdit.value ? 'edit' : 'create'}`
   if (!force && preparedFor === key && step.value !== 'success') {
     void myPin.load()
     return
@@ -128,7 +134,7 @@ async function prepare(force = false): Promise<void> {
 onIonViewWillEnter(() => {
   void prepare()
 })
-watch(isEdit, () => {
+watch([isEdit, lightsUp], () => {
   if (route.path === '/submit') void prepare(true)
 })
 
@@ -170,11 +176,38 @@ const blockedTitle = computed(() => {
   }
 })
 
+const success = computed(() => {
+  if (lightsUp.value) {
+    return {
+      emoji: seasonIcon.value,
+      title: 'Lights on!',
+      message: "Your display is up. Voting is open, so people can now confirm it's there.",
+    }
+  }
+  if (isEdit.value) return { emoji: '✓', title: 'Changes saved', message: 'Your display has been updated.' }
+  if (comingSoon.value) {
+    return {
+      emoji: seasonIcon.value,
+      title: "You're on the list!",
+      message: 'It shows as Coming soon. When your decorations are up, open My display and tap “My lights are up!”.',
+    }
+  }
+  return {
+    emoji: seasonIcon.value,
+    title: 'Your display is live!',
+    message: "It shows as Unverified until a few people visit and tap “It's here”.",
+  }
+})
+
 const loading = computed(() => !season.ready || (!myPin.loaded && !myPin.error && !!myPin.pinId))
 
 const seasonIcon = computed(() => (season.season ? SEASON_THEMES[season.season].icon : '🏠'))
 
-const pageTitle = computed(() => (isEdit.value ? 'Edit my display' : 'Add my display'))
+const pageTitle = computed(() => (lightsUp.value ? 'My lights are up!' : isEdit.value ? 'Edit my display' : 'Add my display'))
+/** Shown as Coming soon in the preview: a new one marked so, or an edit that stays so. */
+const previewComingSoon = computed(() =>
+  isEdit.value ? !lightsUp.value && myPin.pin?.stage === 'COMING_SOON' : comingSoon.value,
+)
 const stepIndex = computed(() => steps.value.indexOf(step.value))
 const stepLabel = computed(() =>
   stepIndex.value >= 0 ? `Step ${stepIndex.value + 1} of ${steps.value.length}` : '',
@@ -230,15 +263,21 @@ async function submit(): Promise<void> {
   }
   try {
     if (isEdit.value) {
+      if (lightsUp.value && !photo.value) return goTo('photo')
       createdPinId.value = await myPin.update(
-        { title: title.value, description: description.value, photo: photo.value?.blob ?? null },
+        {
+          title: title.value,
+          description: description.value,
+          photo: photo.value?.blob ?? null,
+          lightsUp: lightsUp.value,
+        },
         onProgress,
       )
     } else {
       const loc = location.value
       const img = photo.value
       if (!loc) return goTo('location')
-      if (!img) return goTo('photo')
+      if (!img && !comingSoon.value) return goTo('photo')
       if (!consent.value) return goTo('details')
       createdPinId.value = await myPin.create(
         {
@@ -246,7 +285,8 @@ async function submit(): Promise<void> {
           lng: loc.lng,
           title: title.value,
           description: description.value,
-          photo: img.blob,
+          photo: img?.blob ?? null,
+          comingSoon: comingSoon.value,
           consent: consent.value,
         },
         onProgress,
@@ -310,15 +350,7 @@ async function toMyDisplay(): Promise<void> {
         </StateMessage>
 
         <template v-else-if="step === 'success'">
-          <StateMessage
-            :emoji="isEdit ? '✓' : seasonIcon"
-            :title="isEdit ? 'Changes saved' : 'Your display is live!'"
-            :message="
-              isEdit
-                ? 'Your display has been updated.'
-                : 'It shows as Unverified until a few people visit and tap “It\'s here”.'
-            "
-          >
+          <StateMessage :emoji="success.emoji" :title="success.title" :message="success.message">
             <ion-button
               v-if="createdPinId"
               class="tap"
@@ -339,7 +371,9 @@ async function toMyDisplay(): Promise<void> {
           <PhotoStep
             v-else-if="step === 'photo'"
             v-model="photo"
+            v-model:coming-soon="comingSoon"
             :editing="isEdit"
+            :lights-up="lightsUp"
             :current-photo-url="isEdit ? myPin.pin?.photoUrl ?? null : null"
             @next="nextStep"
           />
@@ -363,11 +397,12 @@ async function toMyDisplay(): Promise<void> {
             />
             <PreviewStep
               :photo="photo?.blob ?? null"
-              :current-photo-url="isEdit ? myPin.pin?.photoUrl ?? null : null"
+              :current-photo-url="isEdit && !lightsUp ? myPin.pin?.photoUrl ?? null : null"
               :title="title"
               :description="description"
               :town="isEdit ? myPin.pin?.place.town ?? null : null"
               :editing="isEdit"
+              :coming-soon="previewComingSoon"
               :busy="busy"
               :progress="progress"
               :can-submit="!submitError || !FINAL_SUBMIT_REASONS.includes(submitError.reason)"

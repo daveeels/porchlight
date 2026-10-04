@@ -190,12 +190,13 @@ Flow: location → photo → details → preview → submit → success.
   - **Address search** (above the map): [Photon](https://photon.komoot.io) by komoot — free, no key. Typing 3+ characters (debounced 400 ms; a newer query aborts the older request) asks `photon.komoot.io/api/?q=…&limit=6&lang=en&bbox=166.0,-47.6,179.0,-34.0` (New Zealand) biased to `config/app.launchCenter` (`lat`/`lon`), and lists up to 6 results as "house number + street, suburb, city". Picking one moves the pin exactly like "Use my current location" (marker + fly to street level) and clears the rough-fix accuracy note; the user can still drag or tap to nudge it. Friendly copy for no results, offline and errors (all point back to "Use my current location" / dragging). Small attribution under the box: "Address search: Photon / © OpenStreetMap contributors". The URL lives in `src/config/env.ts` (`VITE_ADDRESS_SEARCH_URL`); `src/services/addressSearch.ts` is the only code that calls it.
   - **This is client-side positioning, not storing geocoded places.** What the user types goes to Photon and nowhere else (no logging, no storage, sent without cookies or referrer); only the point the user ends up choosing continues into `createPin`, which offsets it as always. Pin places still come from GeoNames (§5), so "no geocoding API for storing places" still holds. The privacy policy names Photon (§10).
   - Small phones: the step scrolls with the search box and map; "Next: photo" stays pinned at the bottom (sticky bar), and the map keeps its height clamp (`clamp(190px, 34vh, 340px)`).
-- **Photo:** required. The client decodes, resizes (long edge ≤ 1600 px, `createImageBitmap(file, { imageOrientation: 'from-image' })`) and re-encodes to **JPEG** before upload. Accept JPEG/PNG/WebP. HEIC only where the browser can decode it (iOS Safari usually hands over a JPEG). If decoding fails: "This photo format isn't supported — try a screenshot or JPEG." Max 10 MB after re-encode.
+- **Photo:** required, except for **Coming soon** (below). The client decodes, resizes (long edge ≤ 1600 px, `createImageBitmap(file, { imageOrientation: 'from-image' })`) and re-encodes to **JPEG** before upload. Accept JPEG/PNG/WebP. HEIC only where the browser can decode it (iOS Safari usually hands over a JPEG). If decoding fails: "This photo format isn't supported — try a screenshot or JPEG." Max 10 MB after re-encode.
 - **Details:** title 3–60 chars (required), description 0–500 chars (optional). Plain text. Tip: "Don't include your house number or car plates."
 - **Consent:** required checkbox "This is my house, or I have the owner's permission to share it."
 - **Community rules** (F13) must be agreed before submitting; if they aren't, the rules open first and the display is sent once agreed.
 - **Errors:** already have a pin this season (link to My Pin), submissions closed, rate limited, upload failed.
 - New pins go live immediately as **Unverified**.
+- **Coming soon** (people add their house before the decorations are up — Christmas especially): the photo step has a checkbox "My decorations aren't up yet". Then the photo is optional (none → a themed "lights coming soon" illustration) and the pin is created with `stage: 'COMING_SOON'`. It's listed with a cream "Coming soon" sticker **after every ready display** (`rankScore` −1,000,000; near me sorts it after ready ones too), drawn faint and small on the map, never in Verified only, and **can't be voted on** (`castVote` → `NOT_VOTABLE`; the sheet says "Voting opens when they are") — reports still work. No cut-off: it stays all season. On My display, **"My lights are up!"** (`/submit?edit=1&lightsUp=1`) asks for a decorated photo and calls `updatePin` with `lightsUp: true`, which sets `stage: 'READY'` (a new vote round, as for any new photo). A Coming soon pin can be verified only after that.
 
 **F6. My Pin** (signed in)
 - The current event's pin and its status in plain words: Live – Unverified / Live – Verified / Hidden – under review / Hidden – people said it's not there / Removed by you / Removed by a moderator / Archived.
@@ -344,10 +345,11 @@ interface DisplayPin {
   seasonYear: number;
   title: string;
   description: string | null;
-  photoPath: string;            // photos/{pinId}/{uploadId}/full.webp (versioned per upload)
-  thumbPath: string;            // photos/{pinId}/{uploadId}/thumb.webp
-  photoUrl: string;             // download URL made by the server; used directly in <img>
-  thumbUrl: string;
+  photoPath: string | null;     // photos/{pinId}/{uploadId}/full.webp (versioned per upload); null only for COMING_SOON without a photo
+  thumbPath: string | null;     // photos/{pinId}/{uploadId}/thumb.webp
+  photoUrl: string | null;      // download URL made by the server; used directly in <img>
+  thumbUrl: string | null;
+  stage: 'COMING_SOON' | 'READY'; // F5 Coming soon; missing on older pins = READY. COMING_SOON: no votes.
   geo: GeoPoint;                // ALREADY OFFSET. The exact point is never stored.
   geohash: string;              // from `geo`, precision 9
   place: {                      // looked up from the OFFSET point
@@ -367,7 +369,7 @@ interface DisplayPin {
   notThereVotes: number;
   verified: boolean;            // hereVotes >= 3 && hereVotes >= 2 * notThereVotes
   reportsCount: number;         // counted reports only
-  rankScore: number;            // (isFeatured ? 100000 : 0) + (verified ? 10000 : 0) + hereVotes - notThereVotes
+  rankScore: number;            // (isFeatured ? 100000 : 0) + (verified ? 10000 : 0) + hereVotes - notThereVotes; COMING_SOON: -1000000
   isFeatured: boolean;          // Phase 5
   featuredUntil: Timestamp | null;
   moderation: {
@@ -540,7 +542,8 @@ rateLimits:            no client access
 
 **Transactions:** read everything first, then write. Never run `sharp`, `getAuth()` calls or other slow work inside a transaction (they retry). Counters are updated from values read in the same transaction (e.g. `pin.hereVotes + 1`); Firestore re-runs the transaction with fresh reads on conflict, so this stays correct.
 
-**`createPin(input: { eventId, uploadId, lat, lng, title, description?, consentOwnerOrPermission })`**
+**`createPin(input: { eventId, uploadId, lat, lng, title, description?, consentOwnerOrPermission, comingSoon? })`**
+`comingSoon: true` → `stage: 'COMING_SOON'` and `uploadId` may be left out (no photo step; photo fields null). Otherwise `uploadId` is required and `stage: 'READY'`.
 1. Require auth. Validate input. Call `getAuth().getUser(uid)` (for lazy user creation). Beta gate. Then run the step 5 checks **read-only** (no transaction, nothing written), so a call that would fail anyway (rate limit, existing pin, closed event, cap) never runs `sharp`. Step 3's offset and coverage check also run before the photo.
 2. **Photo, outside any transaction:** read `uploads/{uid}/{uploadId}`. `sharp(buf, { limitInputPixels: 50e6 })`; reject unless `metadata().format` is jpeg, png or webp. Re-encode (sharp drops all metadata) to `full.webp` (1600 px) and `thumb.webp` (400 px) at `photos/{pinId}/{uploadId}/`. Get download URLs from `firebase-admin/storage`. **This is the real EXIF strip.**
 3. **Offset location:** random bearing 0–360°, random distance 25–50 m, converted with the `cos(latitude)` correction for longitude. Geohash and **town lookup use the offset point**. **Never store or log the exact coordinates** (don't log the request payload).
@@ -558,7 +561,8 @@ rateLimits:            no client access
    Write: the pin (ACTIVE, `verified: false`, `voteRound: 0`, all counts 0, `rankScore: 0`, `hiddenReason/removedBy: null`, `moderation.decision: 'NONE'`, dates from the event), `pinCreatesByEvent[eventId] + 1`, rate-limit + 1.
 6. After commit: best-effort `placeIndex` increment (§5). If the transaction failed, delete the photos from step 2. Always delete the upload at the end.
 
-**`updatePin(input: { eventId, title?, description?, uploadId? })`**
+**`updatePin(input: { eventId, title?, description?, uploadId?, lightsUp? })`**
+- `lightsUp: true` ("My lights are up!") requires `uploadId` and sets `stage: 'READY'` (no-op on a READY pin). A new photo without it keeps a COMING_SOON pin COMING_SOON.
 - Owner only. Not banned; community rules agreed (`TERMS_REQUIRED`). Status ACTIVE or HIDDEN. Reject if `now >= expiresAt`. `updatePin` < 10 today. Not while `hiddenReason == 'REPORTS'` (`NOT_EDITABLE`, "under review"): the reported title, description and photo stay as they are until a moderator decides. These checks also run read-only before the photo is processed (as in `createPin` step 1), and again in the transaction.
 - New `uploadId` → same photo step as create (new versioned path); delete old photos after the write succeeds.
 - **Any change resets `moderation.decision` to `'NONE'`** (stops approve-then-swap).
@@ -568,7 +572,7 @@ rateLimits:            no client access
 **`castVote(input: { pinId, value: 'HERE' | 'NOT_THERE' })`**
 1. Before the transaction: `getAuth().getUser(uid)` → `countedIfNew` (Google provider or account ≥ 24 h), `authCreatedAt`.
 2. Transaction — read `users/{uid}`, `rateLimits/{uid}`, the pin, `votes/{uid}`. An existing vote whose `round != pin.voteRound` is treated as no vote.
-3. Check: not banned, community rules agreed (`TERMS_REQUIRED`), `castVote` < 40 today, pin ACTIVE, caller isn't the owner. Same value as the current-round vote → no-op.
+3. Check: not banned, community rules agreed (`TERMS_REQUIRED`), `castVote` < 40 today, pin ACTIVE, caller isn't the owner, pin not COMING_SOON (`NOT_VOTABLE`). Same value as the current-round vote → no-op.
 4. `counted` = the current-round vote's `counted` if changing, else `countedIfNew`.
 5. If counted: remove the old value from its counter (if any), add the new one.
 6. Recompute `verified`, `rankScore`. If the "not there" rule in F7 is met → status HIDDEN, `hiddenReason: 'NOT_THERE'`.

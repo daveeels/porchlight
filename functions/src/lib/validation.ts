@@ -124,7 +124,9 @@ export function parseDescription(value: unknown): string | null {
 
 export interface CreatePinInput {
   eventId: string
-  uploadId: string
+  /** null only when comingSoon (the photo is optional before the decorations are up) */
+  uploadId: string | null
+  comingSoon: boolean
   lat: number
   lng: number
   title: string
@@ -140,11 +142,15 @@ export function parseCreatePinInput(data: unknown): CreatePinInput {
     'title',
     'description',
     'consentOwnerOrPermission',
+    'comingSoon',
   ])
   if (d.consentOwnerOrPermission !== true) invalid('Confirm this is your house, or that you have permission.')
+  if (d.comingSoon !== undefined && typeof d.comingSoon !== 'boolean') invalid('Invalid comingSoon.')
+  const comingSoon = d.comingSoon === true
   return {
     eventId: parseEventId(d.eventId),
-    uploadId: parseUploadId(d.uploadId),
+    uploadId: comingSoon && d.uploadId == null ? null : parseUploadId(d.uploadId),
+    comingSoon,
     lat: parseLat(d.lat),
     lng: parseLng(d.lng),
     title: parseTitle(d.title),
@@ -160,14 +166,21 @@ export interface UpdatePinInput {
   description?: string | null
   /** undefined = keep the current photo */
   uploadId?: string
+  /** "My lights are up!": COMING_SOON → READY. Needs a new (decorated) photo. */
+  lightsUp?: true
 }
 
 export function parseUpdatePinInput(data: unknown): UpdatePinInput {
-  const d = requireObject(data, ['eventId', 'title', 'description', 'uploadId'])
+  const d = requireObject(data, ['eventId', 'title', 'description', 'uploadId', 'lightsUp'])
   const out: UpdatePinInput = { eventId: parseEventId(d.eventId) }
   if (d.title !== undefined) out.title = parseTitle(d.title)
   if (d.description !== undefined) out.description = parseDescription(d.description)
   if (d.uploadId !== undefined) out.uploadId = parseUploadId(d.uploadId)
+  if (d.lightsUp !== undefined && d.lightsUp !== true) invalid('Invalid lightsUp.')
+  if (d.lightsUp === true) {
+    if (out.uploadId === undefined) invalid('Add a photo of your decorations.')
+    out.lightsUp = true
+  }
   if (out.title === undefined && out.description === undefined && out.uploadId === undefined) {
     invalid('Nothing to update.')
   }

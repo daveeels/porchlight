@@ -86,6 +86,27 @@ describe('updatePin', () => {
     expect((await sharp(full).metadata()).exif).toBeUndefined()
   })
 
+  it('Coming soon: a photo alone keeps it Coming soon; lightsUp with a photo makes it READY', async () => {
+    const user = await newUser()
+    const input = createInput(EVENT, '', { comingSoon: true })
+    delete (input as Record<string, unknown>).uploadId
+    const { pinId } = await createPin(user, input)
+
+    await expectReason(updatePin(user, { eventId: EVENT, lightsUp: true }), 'INVALID_INPUT')
+    await expectReason(updatePin(user, { eventId: EVENT, lightsUp: false, title: 'x y z' }), 'INVALID_INPUT')
+
+    await updatePin(user, { eventId: EVENT, uploadId: await upload(user.uid) })
+    expect((await pinRef(pinId).get()).data()).toMatchObject({ stage: 'COMING_SOON', rankScore: -1_000_000 })
+
+    const uploadId = await upload(user.uid)
+    await updatePin(user, { eventId: EVENT, uploadId, lightsUp: true })
+    expect((await pinRef(pinId).get()).data()).toMatchObject({
+      stage: 'READY',
+      rankScore: 0,
+      photoPath: `photos/${pinId}/${uploadId}/full.webp`,
+    })
+  })
+
   it('keeps featured rank after a photo change', async () => {
     const { user, pinId } = await userWithPin()
     await pinRef(pinId).update({ isFeatured: true, rankScore: 100000 + 10003, verified: true, hereVotes: 3 })

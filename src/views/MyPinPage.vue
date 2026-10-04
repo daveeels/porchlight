@@ -22,7 +22,7 @@ import {
   useIonRouter,
   type RefresherCustomEvent,
 } from '@ionic/vue'
-import { addOutline, alertCircleOutline, createOutline, logOutOutline, trashOutline } from 'ionicons/icons'
+import { addOutline, alertCircleOutline, bulbOutline, createOutline, logOutOutline, trashOutline } from 'ionicons/icons'
 import StateMessage from '@/components/common/StateMessage.vue'
 import MyPinCard from '@/components/mypin/MyPinCard.vue'
 import { canChangePin, canEditPin, canReAdd, isUnderReview } from '@/components/mypin/status'
@@ -154,9 +154,21 @@ async function refresh(ev: RefresherCustomEvent): Promise<void> {
 
           <div v-if="canChangePin(myPin.pin)" class="flex flex-col gap-2">
             <ion-button
+              v-if="canEditPin(myPin.pin) && myPin.pin.stage === 'COMING_SOON'"
+              expand="block"
+              class="tap m-0"
+              router-link="/submit?edit=1&lightsUp=1"
+              :disabled="deleting"
+              data-testid="lights-up"
+            >
+              <ion-icon slot="start" :icon="bulbOutline" aria-hidden="true" />
+              My lights are up!
+            </ion-button>
+            <ion-button
               v-if="canEditPin(myPin.pin)"
               expand="block"
               class="tap m-0"
+              :fill="myPin.pin.stage === 'COMING_SOON' ? 'outline' : 'solid'"
               router-link="/submit?edit=1"
               :disabled="deleting"
             >

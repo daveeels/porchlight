@@ -39,6 +39,11 @@ describe('thresholds', () => {
     expect(isVerified(5, 3)).toBe(false)
   })
 
+  it('rankScore puts Coming soon after every ready display', () => {
+    expect(rankScoreOf({ stage: 'COMING_SOON', isFeatured: false, verified: false, hereVotes: 0, notThereVotes: 0 })).toBe(-1_000_000)
+    expect(rankScoreOf({ stage: 'READY', isFeatured: false, verified: false, hereVotes: 0, notThereVotes: 7 })).toBe(-7)
+  })
+
   it('rankScore puts featured, then verified first', () => {
     expect(rankScoreOf({ isFeatured: false, verified: true, hereVotes: 3, notThereVotes: 1 })).toBe(10002)
     expect(rankScoreOf({ isFeatured: true, verified: false, hereVotes: 0, notThereVotes: 2 })).toBe(99998)

@@ -192,6 +192,7 @@ function buildPins(): Map<string, SeedPin> {
       thumbPath: `photos/${pinId}/seed/thumb.webp`,
       photoUrl: photo,
       thumbUrl: photo,
+      stage: 'READY',
       geo: new GeoPoint(lat, lng),
       geohash: geohashForLocation([lat, lng], 9),
       place: lookupPlace(lat, lng),

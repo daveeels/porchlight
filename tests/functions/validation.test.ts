@@ -36,6 +36,7 @@ describe('parseCreatePinInput', () => {
     expect(parseCreatePinInput({ ...valid, title: '  Pumpkin Palace ', description: ' Spooky ' })).toEqual({
       eventId: 'HALLOWEEN_2026',
       uploadId: 'abcdefghij_KLMNOP-123',
+      comingSoon: false,
       lat: -37.7,
       lng: 176.29,
       title: 'Pumpkin Palace',
@@ -43,7 +44,14 @@ describe('parseCreatePinInput', () => {
     })
   })
 
+  it('Coming soon may leave out the photo; a ready display may not', () => {
+    const { uploadId: _, ...noPhoto } = valid
+    expect(parseCreatePinInput({ ...noPhoto, comingSoon: true })).toMatchObject({ uploadId: null, comingSoon: true })
+    expect(reason(() => parseCreatePinInput(noPhoto))).toBe('INVALID_INPUT')
+  })
+
   it.each([
+    ['comingSoon not a boolean', { comingSoon: 'yes' }],
     ['lat > 90', { lat: 90.0001 }],
     ['lng < -180', { lng: -181 }],
     ['Infinity', { lat: Infinity }],
@@ -112,6 +120,13 @@ describe('uploadIdOf', () => {
 })
 
 describe('parseUpdatePinInput', () => {
+  it('lightsUp needs a new photo and must be true', () => {
+    const base = { eventId: 'HALLOWEEN_2026' }
+    expect(parseUpdatePinInput({ ...base, uploadId: 'abcdefghij_KLMNOP-123', lightsUp: true })).toMatchObject({ lightsUp: true })
+    expect(reason(() => parseUpdatePinInput({ ...base, lightsUp: true, title: 'New title' }))).toBe('INVALID_INPUT')
+    expect(reason(() => parseUpdatePinInput({ ...base, lightsUp: false, title: 'New title' }))).toBe('INVALID_INPUT')
+  })
+
   it('keeps only what was sent', () => {
     expect(parseUpdatePinInput({ eventId: 'HALLOWEEN_2026', title: 'New title' })).toEqual({
       eventId: 'HALLOWEEN_2026',

@@ -30,7 +30,10 @@ export interface NewPinDraft {
   lng: number
   title: string
   description: string
-  photo: Blob
+  /** Optional only when comingSoon. */
+  photo: Blob | null
+  /** "My decorations aren't up yet": no votes until the lights are up. */
+  comingSoon?: boolean
   /** The "my house, or I have permission" checkbox; create() refuses without it. */
   consent: boolean
 }
@@ -40,6 +43,8 @@ export interface PinEditDraft {
   description: string
   /** A new photo, or null to keep the current one. */
   photo: Blob | null
+  /** "My lights are up!" (needs a new photo): Coming soon → ready. */
+  lightsUp?: boolean
 }
 
 function cleanDescription(d: string): string | null {
@@ -132,11 +137,13 @@ export const useMyPinStore = defineStore('myPin', () => {
     if (draft.consent !== true) {
       throw new PinWriteError('INVALID_INPUT', 'Confirm this is your house, or that you have permission.')
     }
-    const uploadId = await upload(uid, draft.photo, onProgress)
+    if (!draft.photo && !draft.comingSoon) throw new PinWriteError('INVALID_INPUT', 'Add a photo of your display.')
+    const uploadId = draft.photo ? await upload(uid, draft.photo, onProgress) : undefined
     onProgress?.({ phase: 'save', fraction: 1 })
     const { pinId: id } = await createPin({
       eventId: ev,
-      uploadId,
+      ...(uploadId ? { uploadId } : {}),
+      ...(draft.comingSoon ? { comingSoon: true } : {}),
       lat: draft.lat,
       lng: draft.lng,
       title: draft.title.trim(),
@@ -158,6 +165,7 @@ export const useMyPinStore = defineStore('myPin', () => {
       title: draft.title.trim(),
       description: cleanDescription(draft.description),
       ...(uploadId ? { uploadId } : {}),
+      ...(draft.lightsUp && uploadId ? { lightsUp: true as const } : {}),
     })
     usePinsStore().afterOwnPinChanged(id)
     await load(true)

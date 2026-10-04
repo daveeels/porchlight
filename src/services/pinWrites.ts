@@ -7,7 +7,9 @@ import { functions } from './firebase'
 
 export interface CreatePinInput {
   eventId: string
-  uploadId: string
+  /** Optional only for a Coming soon display. */
+  uploadId?: string
+  comingSoon?: boolean
   lat: number
   lng: number
   title: string
@@ -20,6 +22,8 @@ export interface UpdatePinInput {
   title?: string
   description?: string | null
   uploadId?: string
+  /** "My lights are up!": Coming soon → ready. Needs uploadId. */
+  lightsUp?: true
 }
 
 export interface DeletePinInput {
