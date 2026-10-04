@@ -40,14 +40,18 @@ async function expectTapTargets(page: Page): Promise<void> {
   // Measure once the slide between cards has finished.
   await expect(welcome(page).locator('[class*="-enter-active"], [class*="-leave-active"]')).toHaveCount(0)
   const viewport = page.viewportSize()
-  for (const target of [page.getByTestId('welcome-skip'), nextButton(page)]) {
-    const box = await target.boundingBox()
-    expect(box).not.toBeNull()
-    expect(box!.height).toBeGreaterThanOrEqual(44)
-    expect(box!.width).toBeGreaterThanOrEqual(44)
-    expect(box!.y).toBeGreaterThanOrEqual(0)
-    expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height)
-  }
+  // Retried: right after it opens, the modal may still be sliding up from
+  // below the screen (slow under parallel load), so a first measure can be low.
+  await expect(async () => {
+    for (const target of [page.getByTestId('welcome-skip'), nextButton(page)]) {
+      const box = await target.boundingBox()
+      expect(box).not.toBeNull()
+      expect(box!.height).toBeGreaterThanOrEqual(44)
+      expect(box!.width).toBeGreaterThanOrEqual(44)
+      expect(box!.y).toBeGreaterThanOrEqual(0)
+      expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height)
+    }
+  }).toPass({ timeout: 5_000 })
   // No sideways scroll inside the cards.
   const overflow = await welcome(page).evaluate((el) => el.scrollWidth - el.clientWidth)
   expect(overflow).toBeLessThanOrEqual(0)

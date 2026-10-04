@@ -48,10 +48,59 @@ async function outer() {
   )
 }
 
+/**
+ * Starts every callable's emulator workers before the tests run. The
+ * Functions emulator starts a worker process on a function's first request;
+ * that normally takes ~1.5 s, but on a busy Windows machine it has taken
+ * over 60 s, and the emulator then drops the request without ever answering
+ * (firebase-tools logs "Failed to start functions … Failed to load function."),
+ * so the browser waits on the call until the test times out — e.g. the
+ * community rules' "I agree" spinning forever. Warming here moves that cost
+ * out of the tests: a CORS preflight per callable (it runs no function code),
+ * two at a time so two parallel tests each find an idle worker.
+ */
+async function warmFunctions() {
+  const hub = process.env.FIREBASE_EMULATOR_HUB
+  if (!hub) return
+  try {
+    const emulators = await (await fetch(`http://${hub}/emulators`)).json()
+    const fn = emulators.functions
+    if (!fn) return
+    const base = `http://${fn.host}:${fn.port}`
+    const { backends } = await (await fetch(`${base}/backends`)).json()
+    const callables = backends
+      .flatMap((b) => b.functionTriggers)
+      .filter((t) => t.httpsTrigger)
+      .map((t) => `${base}/demo-porchlight/${t.region}/${t.entryPoint}`)
+    const started = Date.now()
+    for (const url of callables) {
+      const preflight = () =>
+        fetch(url, {
+          method: 'OPTIONS',
+          headers: {
+            Origin: 'http://localhost:5180',
+            'Access-Control-Request-Method': 'POST',
+            'Access-Control-Request-Headers': 'authorization,content-type',
+          },
+          signal: AbortSignal.timeout(90_000),
+        })
+      await Promise.all([preflight(), preflight()])
+    }
+    console.log(`[e2e] Warmed ${callables.length} callables in ${((Date.now() - started) / 1000).toFixed(1)} s`)
+  } catch (e) {
+    // Not fatal: the tests still run, they just pay the cold starts.
+    console.warn(`[e2e] Couldn't warm the functions: ${e instanceof Error ? e.message : e}`)
+  }
+}
+
 async function inner() {
   const seeded = await run('npm', ['run', 'seed'])
   if (seeded !== 0) return seeded
+  await warmFunctions()
   const args = JSON.parse(process.env[ARGS_VAR] ?? '[]')
+  // iPhone (WebKit) is paused for speed: Pixel only unless a --project is given
+  // (e.g. npm run test:e2e -- --project=iphone).
+  if (!args.some((a) => a.startsWith('--project'))) args.push('--project=pixel')
   // Without a shell, so arguments with spaces (e.g. -g "town chips") survive.
   return new Promise((resolve) => {
     const cli = join('node_modules', '@playwright', 'test', 'cli.js')

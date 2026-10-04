@@ -196,7 +196,11 @@ async function share(): Promise<void> {
 
 <style scoped>
 .hero {
-  height: 150px;
+  /* A little taller than the old 150 px so more of the house shows, scaling
+     with the screen (~175 px on an iPhone SE, 210 px on big phones) while the
+     vote buttons stay visible at the sheet's first height. */
+  height: clamp(170px, 26vh, 210px);
+  object-position: center;
   background: var(--pl-surface);
 }
 .panel {

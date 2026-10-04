@@ -44,7 +44,17 @@ export function acceptTermsErrorMessage(e: unknown): string {
   return "Couldn't save that. Please try again."
 }
 
+/**
+ * The rules form is a gate, so a call that never answers (a dropped mobile
+ * connection) mustn't leave "I agree" spinning for the SDK's default 70 s:
+ * give up sooner with "the connection dropped, try again". acceptTerms is a
+ * single write, and agreeing twice is harmless if a slow call did land.
+ */
+export const ACCEPT_TERMS_TIMEOUT_MS = 20_000
+
 export async function acceptTerms(version: string): Promise<{ version: string; acceptedAt: Date }> {
-  const res = await httpsCallable<{ version: string }, AcceptTermsResult>(functions, 'acceptTerms')({ version })
+  const res = await httpsCallable<{ version: string }, AcceptTermsResult>(functions, 'acceptTerms', {
+    timeout: ACCEPT_TERMS_TIMEOUT_MS,
+  })({ version })
   return { version: res.data.termsVersion, acceptedAt: new Date(res.data.acceptedAt) }
 }

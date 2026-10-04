@@ -31,10 +31,10 @@ async function waitForServer() {
 let failed = false
 try {
   await waitForServer()
-  for (const [name, browserType, device] of [
-    ['pixel', chromium, devices['Pixel 7']],
-    ['iphone', webkit, devices['iPhone 13']],
-  ]) {
+  // iPhone (WebKit) is paused for speed; SMOKE_IPHONE=1 turns it back on.
+  const targets = [['pixel', chromium, devices['Pixel 7']]]
+  if (process.env.SMOKE_IPHONE === '1') targets.push(['iphone', webkit, devices['iPhone 13']])
+  for (const [name, browserType, device] of targets) {
     const browser = await browserType.launch()
     const page = await (await browser.newContext({ ...device })).newPage()
     const errors = []

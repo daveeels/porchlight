@@ -126,6 +126,22 @@ describe('useTermsStore', () => {
     expect(terms.isOpen).toBe(false)
   })
 
+  it('signing out while "I agree" is still saving: the gate closes and the late answer changes nothing', async () => {
+    let answer: (v: { version: string; acceptedAt: Date }) => void = () => {}
+    mockAccept.mockReturnValue(new Promise((resolve) => (answer = resolve)))
+    const terms = await signIn()
+    const agreeing = terms.agree()
+    expect(terms.saving).toBe(true)
+    authState.uid.value = null
+    await settle()
+    expect(terms.isOpen).toBe(false)
+    answer({ version: TERMS_VERSION, acceptedAt: new Date() })
+    await expect(agreeing).resolves.toBe(false)
+    expect(terms.saving).toBe(false)
+    expect(terms.accepted).toBe(false)
+    expect(terms.isOpen).toBe(false)
+  })
+
   it('keeps the form open with a message when saving fails', async () => {
     mockAccept.mockRejectedValue(new Error('offline'))
     const terms = await signIn()

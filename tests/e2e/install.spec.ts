@@ -198,8 +198,10 @@ test.describe('production build installability', () => {
     if (browserName !== 'chromium') return
     testInfo.setTimeout(300_000)
     mkdirSync(OUT_DIR, { recursive: true })
-    // Same offline demo config as the dev-server suite.
+    // Same offline demo config as the dev-server suite (PORCHLIGHT_DEMO_BUILD
+    // lets vite.config's production-project check allow this throwaway build).
     Object.assign(process.env, {
+      PORCHLIGHT_DEMO_BUILD: '1',
       VITE_USE_EMULATORS: 'true',
       VITE_FIREBASE_API_KEY: 'demo-api-key',
       VITE_FIREBASE_AUTH_DOMAIN: 'demo-porchlight.firebaseapp.com',

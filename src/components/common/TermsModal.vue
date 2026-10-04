@@ -200,11 +200,12 @@ async function fullTerms(): Promise<void> {
             <ion-spinner v-if="terms.saving" slot="start" name="crescent" />
             I agree
           </ion-button>
+          <!-- Usable while "I agree" is saving: it's the gate's only way out. -->
           <ion-button
             expand="block"
             fill="clear"
             class="tap m-0"
-            :disabled="terms.saving || signingOut"
+            :disabled="signingOut"
             data-testid="terms-sign-out"
             @click="signOut"
           >

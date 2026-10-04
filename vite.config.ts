@@ -83,6 +83,8 @@ function requireProdProject(): Plugin {
     apply: 'build',
     configResolved(config) {
       const id = config.env.VITE_FIREBASE_PROJECT_ID
+      // tests/e2e/install.spec.ts builds the offline demo on purpose (never deployed).
+      if (id === 'demo-porchlight' && process.env.PORCHLIGHT_DEMO_BUILD === '1') return
       if (id !== PROD_PROJECT_ID) {
         throw new Error(
           `VITE_FIREBASE_PROJECT_ID is "${id ?? ''}" but production builds must use "${PROD_PROJECT_ID}". Fix .env.local (emulators use demo-porchlight automatically).`,
