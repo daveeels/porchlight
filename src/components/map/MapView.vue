@@ -2,7 +2,7 @@
 // Browse map (SPEC F2). Mounted lazily once by ExplorePage and kept with
 // v-show: this component never creates a second MapLibre Map and never removes
 // the one it has (golden rule 5). The parent must give it a height.
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useMap } from '@/composables/useMap'
 import { useMapStore } from '@/stores/map'
 import StateMessage from '@/components/common/StateMessage.vue'
@@ -20,6 +20,12 @@ const { status, tooWide, loadFailed, locating, locateError, activate, resize, lo
   host,
   { onSelectPin: (id) => emit('select-pin', id) },
 )
+
+/** "Show on map" ring: announced for screen readers, and marked on the host (tests). */
+const highlightLabel = computed(() => {
+  const req = mapStore.focusRequest
+  return req && mapStore.highlightedPinId === req.pin.id ? `Showing ${req.pin.title} on the map` : ''
+})
 
 let frame = 0
 function resizeSoon(): void {
@@ -61,7 +67,13 @@ onBeforeUnmount(() => {
 
 <template>
   <div ref="root" class="map-view relative h-full min-h-64 w-full overflow-hidden">
-    <div ref="host" class="map-host" data-testid="browse-map" />
+    <div
+      ref="host"
+      class="map-host"
+      data-testid="browse-map"
+      :data-highlight="mapStore.highlightedPinId ?? undefined"
+    />
+    <p class="sr-only" role="status">{{ highlightLabel }}</p>
 
     <div v-if="status === 'error'" class="map-overlay absolute inset-0 flex items-center justify-center">
       <StateMessage title="Map temporarily unavailable" message="Try the list view for now." error />

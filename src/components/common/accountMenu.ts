@@ -61,17 +61,23 @@ export function useAccountMenu() {
     welcome.reopen()
   }
 
-  /** Buttons for actionSheetController.create({ buttons }). */
-  function actionSheetButtons(): ActionSheetButton[] {
+  /**
+   * Buttons for actionSheetController.create({ buttons }). Actions that move
+   * inside the app (a page, a modal, signing out) go through `later`, so the
+   * caller can run them once the sheet and its Back history entry are gone;
+   * mail and Ko-fi run in the tap itself (a new window needs the tap).
+   */
+  function actionSheetButtons(later: (action: () => void) => void = (action) => action()): ActionSheetButton[] {
+    const inApp = (action: () => void) => () => later(action)
     const buttons: ActionSheetButton[] = [
-      { text: 'My display', handler: () => void router.push('/me') },
-      { text: 'How Porchlight works', handler: showWelcome },
-      { text: 'Community rules', handler: showRules },
+      { text: 'My display', handler: inApp(() => void router.push('/me')) },
+      { text: 'How Porchlight works', handler: inApp(showWelcome) },
+      { text: 'Community rules', handler: inApp(showRules) },
       { text: 'Send feedback', handler: sendFeedback },
-      { text: 'About & privacy', handler: () => void router.push('/about') },
+      { text: 'About & privacy', handler: inApp(() => void router.push('/about')) },
     ]
     if (donateUrl()) buttons.push({ text: 'Buy a bad decision 🍻', handler: donate })
-    if (auth.isSignedIn) buttons.push({ text: 'Sign out', role: 'destructive', handler: () => void signOut() })
+    if (auth.isSignedIn) buttons.push({ text: 'Sign out', role: 'destructive', handler: inApp(() => void signOut()) })
     buttons.push({ text: 'Cancel', role: 'cancel' })
     return buttons
   }

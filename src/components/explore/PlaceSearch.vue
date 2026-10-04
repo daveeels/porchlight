@@ -3,8 +3,9 @@
 // client as the user types, areas first, macron-insensitive. A short
 // "Popular places" row sits under the box (hidden while the page shows town
 // chips instead); focusing the empty box lists more.
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { IonButton, IonItem, IonLabel, IonList, IonNote, IonSearchbar } from '@ionic/vue'
+import { openBackEntry, type BackEntry } from '@/lib/backStack'
 import { searchPlaces, type PlaceResult } from '@/lib/search'
 import { usePinsStore } from '@/stores/pins'
 import { useSeasonStore } from '@/stores/season'
@@ -49,11 +50,15 @@ function retryPlaces(): void {
 function onFocus(): void {
   clearTimeout(blurTimer)
   focused.value = true
+  holdBack()
   if (loadFailed.value) retryPlaces()
 }
 
-// Delay so a tap on a result registers before the list closes.
+// Delay so a tap on a result registers before the list closes. The Back
+// entry goes at once: whatever took the focus (a chip, a card, Near me) may
+// change the URL next, and that must not land on the dropdown's entry.
 function onBlur(): void {
+  dropBack()
   blurTimer = setTimeout(() => {
     focused.value = false
   }, 200)
@@ -64,6 +69,9 @@ function choose(place: PlaceResult): void {
   query.value = ''
   focused.value = false
   ;(document.activeElement as HTMLElement | null)?.blur?.()
+  // Drop the dropdown's Back entry now: the parent awaits settled() before
+  // changing the URL, so the replace never lands on that entry.
+  dropBack()
   emit('select', place)
 }
 
@@ -71,6 +79,32 @@ function onCancel(): void {
   query.value = ''
   focused.value = false
 }
+
+// Back closes the open dropdown (and the keyboard) instead of leaving the page.
+let back: BackEntry | null = null
+
+function dropBack(): void {
+  void back?.close()
+  back = null
+}
+
+/** While the box has focus (dropdown and keyboard up). Dropped as soon as focus leaves. */
+function holdBack(): void {
+  back ??= openBackEntry(() => {
+    back = null
+    clearTimeout(blurTimer)
+    onCancel()
+    ;(document.activeElement as HTMLElement | null)?.blur?.()
+  })
+}
+
+watch(open, (isOpen) => {
+  if (!isOpen) dropBack()
+})
+onBeforeUnmount(() => {
+  clearTimeout(blurTimer)
+  dropBack()
+})
 </script>
 
 <template>

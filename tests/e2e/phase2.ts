@@ -236,3 +236,11 @@ export async function searchAddress(page: Page, query: string): Promise<void> {
   await page.getByTestId('address-search').locator('input').fill(query)
   await expect(page.getByTestId('address-results')).toBeVisible(FIRST_LOAD)
 }
+
+/** A pin's (already offset) location, read with the Admin SDK. */
+export async function pinLocation(pinId: string): Promise<{ lat: number; lng: number }> {
+  const snap = await getFirestore(adminApp()).doc(`pins/${pinId}`).get()
+  const geo = snap.get('geo') as { latitude?: unknown; longitude?: unknown } | undefined
+  if (typeof geo?.latitude !== 'number' || typeof geo.longitude !== 'number') throw new Error(`No pin ${pinId}`)
+  return { lat: geo.latitude, lng: geo.longitude }
+}

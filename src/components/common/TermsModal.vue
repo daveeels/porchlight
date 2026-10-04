@@ -22,6 +22,7 @@ import {
 } from '@ionic/vue'
 import { useAccountMenu } from '@/components/common/accountMenu'
 import { COMMUNITY_RULES, FULL_TERMS_PATH, RULES_CHECKBOX_LABEL, RULES_TITLE } from '@/config/terms'
+import { openBackEntry, settled, type BackEntry } from '@/lib/backStack'
 import { useAuthStore } from '@/stores/auth'
 import { useTermsStore } from '@/stores/terms'
 
@@ -51,7 +52,27 @@ watch(
   },
 )
 
+// Back (SPEC F13): the open modal owns one history entry. In "view" mode Back
+// closes it; the "agree" gate ignores Back (the entry is put back), so Back
+// can neither close the gate nor take the page away from under it.
+let back: BackEntry | null = null
+
+function onDidPresent(): void {
+  back ??= openBackEntry(() => {
+    if (terms.isOpen && terms.mode === 'agree') return false
+    back = null
+    terms.dismissed()
+  })
+}
+
+function dropBackEntry(): Promise<void> {
+  const entry = back
+  back = null
+  return entry ? entry.close() : Promise.resolve()
+}
+
 function onDidDismiss(): void {
+  void dropBackEntry()
   terms.dismissed()
   // Unmount on a later task: IonModal itself re-renders (drops its content)
   // on didDismiss, and unmounting it in the same flush breaks Vue's patch.
@@ -90,7 +111,7 @@ function close(): void {
   terms.dismissed()
 }
 
-function fullTerms(): void {
+async function fullTerms(): Promise<void> {
   if (agreeMode.value) {
     window.open(FULL_TERMS_PATH, '_blank', 'noopener')
     return
@@ -101,6 +122,9 @@ function fullTerms(): void {
     document.getElementById(hash)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
     return
   }
+  // Our Back entry goes first, so /about isn't pushed on top of it.
+  await dropBackEntry()
+  await settled()
   void router.push({ path, hash: hash ? `#${hash}` : undefined })
 }
 </script>
@@ -113,6 +137,7 @@ function fullTerms(): void {
     :can-dismiss="canDismiss"
     :backdrop-dismiss="!agreeMode"
     aria-labelledby="rules-title"
+    @did-present="onDidPresent"
     @did-dismiss="onDidDismiss"
   >
     <ion-header>

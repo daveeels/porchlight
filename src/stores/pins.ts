@@ -287,6 +287,15 @@ export const usePinsStore = defineStore('pins', () => {
     }
   }
 
+  /** A pin by id, from what's loaded or one read (e.g. "Show on map" from a link). Null if missing. */
+  async function getPin(id: string): Promise<Pin | null> {
+    const known = knownPins.get(id) ?? (selectedPin.value?.id === id ? selectedPin.value : null)
+    if (known) return known
+    const pin = await fetchPin(id)
+    if (pin) remember([pin])
+    return pin
+  }
+
   // ---- Local updates after a vote / report (SPEC F7/F8) -------------------
 
   /** Bumped whenever cached pins change locally, so the map can redraw from the cache. */
@@ -369,5 +378,6 @@ export const usePinsStore = defineStore('pins', () => {
     selectedPinNotFound,
     selectedPinError,
     selectPin,
+    getPin,
   }
 })

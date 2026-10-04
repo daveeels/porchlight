@@ -6,6 +6,7 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { IonButton, IonIcon, actionSheetController } from '@ionic/vue'
 import { flagOutline } from 'ionicons/icons'
+import { openBackEntry } from '@/lib/backStack'
 import {
   REPORT_REASONS,
   REPORT_REASON_LABELS,
@@ -44,8 +45,19 @@ async function pickReason(): Promise<ReportReason | null> {
       { text: 'Cancel', role: 'cancel' },
     ],
   })
+  // Back closes the picker (and only the picker: the card stays open).
+  // Taken before the sheet animates in, so an early Back is caught too.
+  let backed = false
+  const back = openBackEntry(() => {
+    backed = true
+    void sheet.dismiss(undefined, 'cancel')
+  })
   await sheet.present()
+  if (backed) void sheet.dismiss(undefined, 'cancel')
   const { data, role } = await sheet.onDidDismiss()
+  // Not awaited: sending doesn't touch history, and closing the card after a
+  // report that hid it waits for this pop (settled() in useExploreHistory).
+  void back.close()
   return role !== 'cancel' && role !== 'backdrop' && isReason(data) ? data : null
 }
 

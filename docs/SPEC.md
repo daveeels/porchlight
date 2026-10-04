@@ -137,13 +137,13 @@ Switching season calls `map.setStyle()` on the **existing** map. On `style.load`
 - **Results list (area or town):** card per pin with thumbnail, title, town, ✓ Verified badge or "Unverified", and "It's here" count. Sorted by `rankScore` (verified first). 20 per page; "Load more" uses `startAfter(lastDocSnapshot)`, and results are de-duplicated by id across pages (scores can change between pages).
 - **"Verified only"** on area/town lists: because `rankScore` puts verified pins first, stop at the first result where `!pin.verified && !pin.isFeatured`, drop any featured-but-unverified pins before that point, and stop "Load more" once it's reached.
 - **Shareable links:** `/a/:areaKey` (e.g. `/a/tauranga`), `/t/:townKey` and `/p/:pinId` are for posting in local groups. They are **redirect routes** to `/?area=…`, `/?town=…` and `/?pin=…` (see §7), so they never create a second ExplorePage or map.
-- Picking an area, town or pin inside the app only changes the query on `/` (`router.replace({ query })`). The Share button builds the short URL itself.
+- Picking an area or town inside the app only changes the query on `/` (`router.replace({ query })`, so Back doesn't walk back through places). Opening a display's card pushes **one** history entry on the same route (`/?…&pin=<id>`), so the phone's Back closes it (§7 "Back"). The Share button builds the short URL itself.
 - A place from `placeIndex` may briefly show zero results (counts are refreshed nightly). Show the normal empty state.
 - Pins outside every defined area still work: they get a town but `areaKey: null`, and are found by town search, near me and the map.
 - For signed-in users, a **List | Map** segment at the top switches to F2. Anonymous users see the Map segment with a "Sign in to see the map" prompt.
 
 **F2. Map (signed-in only, and only if `config/app.mapAccess` allows it)**
-- `ExplorePage` is the root of the Ionic navigation stack. The map component is created the first time the Map segment is opened, then kept alive with `v-show` (never `v-if`) and never destroyed. Call `map.resize()` when it becomes visible and on `ionViewDidEnter`. Never `navigateRoot`/`router.replace` away from `ExplorePage`.
+- `ExplorePage` is the root of the Ionic navigation stack. The map component is created the first time the Map segment is opened, then kept alive with `v-show` (never `v-if`) and never destroyed. Call `map.resize()` when it becomes visible and on `ionViewDidEnter`. Never `navigateRoot`/`router.replace` away from `ExplorePage`. A query-only push on `/` (a card, "Show on map") reuses this ExplorePage and its map (§7 "Back").
 - Centered on the user's location (if permitted), else the launch town from config.
 - Pins load only at **zoom ≥ 11**. Below that, show "Zoom in to see displays".
 - Re-query on `moveend`, debounced 400 ms, using **fixed geohash cells** (not `geohashQueryBounds` — its ranges change on every pan and can't be cache keys):
@@ -160,7 +160,13 @@ Switching season calls `map.setStyle()` on the **existing** map. On `style.load`
 - Photo, title, description, town, ✓ Verified / Unverified, counts ("12 people say it's here").
 - "Open in Maps" link (to the offset location). Note: "Location is approximate."
 - Signed in: **It's here ✓**, **Not there ✗** under a visible "Did you see it?", **Report** (reason picker). Shows the user's current vote.
-- Order: title, place, counts, then the vote buttons (on screen at the 0.4 breakpoint), then photo, description, Open in Maps / Share, Report.
+- Order: title, place, counts, then the vote buttons (on screen at the 0.4 breakpoint), then photo, description, Open in Maps / Show on map / Share, Report.
+- **"Show on map"** (amber text link with a map icon, ≥ 44 px, next to Open in Maps / Share):
+  - Signed in and the map allowed (`mapAllowed`): closes the card, switches to the Map segment and moves the one browse map to the pin at zoom 16 (`flyTo`; `jumpTo` with `prefers-reduced-motion`). The pin is drawn even before its geohash cell has loaded, with a pulsing ring (the season's `marker.highlight` colour from `SEASON_THEMES`) for ~4 s once the map has arrived (`useMapStore().focusPin()` / `highlightedPinId`). Tapping the pin opens its card as usual. Back from the map returns to the list where the user was (§7 "Back").
+  - Signed out: reads **"Sign in to see it on the map"** → `/sign-in?redirect=/?pin=<id>&view=map`; after signing in the user lands on the map at that house.
+  - `mapAccess: 'OFF'` (or no map even when signed in): hidden.
+  - Deep link: `/?view=map&pin=<id>` and `/p/<id>?view=map` open straight on the map at that pin (members; anyone else gets the card).
+- The phone's Back closes the card (§7 "Back").
 - Anonymous: the same buttons open "Sign in to vote".
 - Not shown on your own pin: vote/report buttons.
 
@@ -613,10 +619,10 @@ Each action sets `moderation.decision`, `reviewedBy`, `reviewedAt` on the pin; t
 
 | Route | Screen | Phase |
 |---|---|---|
-| `/` | **ExplorePage** — place search, popular places, near me, results list, List \| Map segment. Reads `?area=`, `?town=` and `?pin=`; with none, opens `config/app.defaultAreaKey` | 1 |
+| `/` | **ExplorePage** — place search, popular places, near me, results list, List \| Map segment. Reads `?area=`, `?town=`, `?pin=` (the card) and `?view=map` (the Map segment; with `?pin=` on arrival: the map at that pin); with none, opens `config/app.defaultAreaKey` | 1 |
 | `/a/:areaKey` | Redirect route: `redirect: to => ({ path: '/', query: { area: to.params.areaKey } })` | 1 |
 | `/t/:townKey` | Redirect route: `redirect: to => ({ path: '/', query: { town: to.params.townKey } })` | 1 |
-| `/p/:pinId` | Redirect route: `redirect: to => ({ path: '/', query: { pin: to.params.pinId } })` | 1 |
+| `/p/:pinId` | Redirect route: `redirect: to => ({ path: '/', query: { pin: to.params.pinId } })` (`?view=map` is passed through) | 1 |
 | `/sign-in` | **SignInPage** — "Continue with Google" + "Email me a sign-in link" (F11, Phase 3); in-app browser notice (F4) | 1–3 |
 | `/submit` | **SubmitPinPage** — add/edit flow (auth-guarded) | 2 |
 | `/me` | **MyPinPage** — my pin, status, edit/delete, sign out | 2 |
@@ -629,6 +635,16 @@ Each action sets `moderation.decision`, `reviewedBy`, `reviewedAt` on the pin; t
 **First-run welcome (F14):** a full-screen modal over Explore on a first visit (cards 1–3), after a first sign-in on any screen (card 4, then the community rules), or from the account menu / About (reopen). At 375 × 667 the picture shrinks first so the button stays on screen.
 
 **Empty and error states:** off-season, town has no displays yet, no displays near you, zoom in to see displays, location permission denied, offline, sign-in cancelled/popup blocked, already have a pin, submissions closed, rate limited, map temporarily unavailable (`mapAccess: 'OFF'`).
+
+**Back** (the phone's or browser's Back button; Android's hardware Back in the installed app is the same browser history, so no Capacitor work): Back closes what's open before it leaves a page.
+- **Display card (F3)** opened in the app: one history entry, a same-route, query-only push (`/?…&pin=<id>`) through Ionic with direction `'none'`, marked `history.state.plSheet` (`src/composables/useExploreHistory.ts`). IonRouterOutlet only builds a view when the matched route or the path changes, so the push reuses the one ExplorePage and its one map (the E2E suite checks there is exactly one). Back closes the card and leaves the list/map exactly as it was. Closing it any other way (swipe down, backdrop, Escape, the card going away after a vote/report) pops that entry (`router.back()`), so Back is never needed twice and no stale `?pin=` URL is left. Opening a card from a card replaces its entry.
+- **Arriving on a card** (an unmarked `?pin=`: a shared `/p/` link, a sign-in redirect, an email link): the entry is replaced with the plain list URL and the card's entry pushed on top, so the first Back closes the card onto the list.
+- **"Show on map"**: the card's entry becomes `/?…&view=map` (marked `plMap`), so Back from the map returns to the list. Switching List/Map by hand adds no entry (tapping List on a "Show on map" entry drops it).
+- **Overlays without a URL** — the report reason picker, the account menu, the welcome cards (Back = Skip), the community rules in read-only mode, the place-search dropdown (while the box has focus): each owns one same-URL entry (`history.pushState`, marked `history.state.plBack`; `src/lib/backStack.ts`). Closing one another way pops its entry; if something was pushed on top meanwhile, the next Back skips it. In-app navigation that follows an overlay waits for that pop first. Modals that open by themselves (welcome, rules) take their entry once they have finished opening.
+- **Community rules gate** (agree mode, F13): Back is ignored (its entry is put straight back), so Back can neither close it nor take the page from under it.
+- **Add a display (F5):** every step after the first has an entry: Back goes to the previous step with everything kept (photo → location); on the first step Back leaves the page as before. Ignored while uploading. Finishing drops the steps' entries, so Back from the success screen or My display doesn't return to a finished form.
+- Ionic's iOS swipe-back is off while an overlay or step holds an entry (it would animate away and then only pop the entry).
+- Known limit: Chrome can skip history entries a page adds before the user has tapped anything (its "history manipulation intervention"), e.g. a shared link's card or the welcome cards on a first load, so there the first Back may still leave.
 
 **Mobile rules:** design at 375 px first. Tap targets ≥ 44 × 44 px. No horizontal scroll. Pin details always in a bottom sheet.
 

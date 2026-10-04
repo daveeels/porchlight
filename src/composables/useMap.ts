@@ -3,7 +3,8 @@
 // (golden rule 5): the Map is created once, into a module-level container
 // element that is moved into whichever host mounts, and it is never removed
 // except on a real page unload. Season changes call setStyle() and re-add
-// images, sources and layers on 'style.load'.
+// images, sources and layers on 'style.load'. "Show on map" (SPEC F3) flies
+// the same map to a pin and rings it for a few seconds (applyFocus).
 import { readonly, ref, watch, type Ref } from 'vue'
 import type {
   AddLayerObject,
@@ -17,7 +18,7 @@ import { SEASON_THEMES, type SeasonTheme } from '@/config/seasons'
 import { cellPrecisionForZoom, cellsForViewport, type LatLng } from '@/lib/geoCells'
 import { MARKER_IMAGE, markerImages, markerPixelRatio } from '@/lib/markerImages'
 import { useAppConfigStore } from '@/stores/appConfig'
-import { useMapStore } from '@/stores/map'
+import { FOCUS_ZOOM, useMapStore, type FocusRequest } from '@/stores/map'
 import { usePinsStore } from '@/stores/pins'
 import { useSeasonStore } from '@/stores/season'
 import type { Pin, Season } from '@/types/models'
@@ -36,6 +37,14 @@ const LAYER_CLUSTERS = 'pl-clusters'
 const LAYER_CLUSTER_COUNT = 'pl-cluster-count'
 const LAYER_PINS = 'pl-pins-unclustered'
 const LAYER_ME = 'pl-me'
+const SRC_HIGHLIGHT = 'pl-highlight'
+export const LAYER_HIGHLIGHT = 'pl-highlight'
+/** How long the "Show on map" ring pulses (SPEC F3). */
+export const HIGHLIGHT_MS = 4000
+/** One pulse of the ring. */
+const PULSE_MS = 1200
+/** Drop a ring that never got to start (style never loaded, map left covered). */
+const RING_BACKSTOP_MS = 2 * 60 * 1000
 const TAP_PAD_PX = 10
 /** OpenFreeMap's glyph server only has this fontstack (SPEC §3). */
 export const MAP_TEXT_FONT = ['Noto Sans Regular']
@@ -60,13 +69,18 @@ export interface PinFeatureCollection {
 }
 
 /** Pins → GeoJSON for the clustered source. "Verified only" filters here, client-side,
- *  so cluster counts match what is shown (a layer filter can't reach inside clusters). */
-export function pinsToFeatureCollection(pins: Pin[], verifiedOnly: boolean): PinFeatureCollection {
+ *  so cluster counts match what is shown (a layer filter can't reach inside clusters).
+ *  `always` (the "Show on map" pin) is drawn even if no loaded cell has it yet. */
+export function pinsToFeatureCollection(
+  pins: Pin[],
+  verifiedOnly: boolean,
+  always: Pin | null = null,
+): PinFeatureCollection {
+  const shown = pins.filter((p) => !verifiedOnly || p.verified || p.id === always?.id)
+  if (always && !shown.some((p) => p.id === always.id)) shown.push(always)
   return {
     type: 'FeatureCollection',
-    features: pins
-      .filter((p) => !verifiedOnly || p.verified)
-      .map((p) => ({
+    features: shown.map((p) => ({
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: [p.geo.longitude, p.geo.latitude] as [number, number] },
         properties: { id: p.id, verified: p.verified, isFeatured: p.isFeatured, title: p.title },
@@ -97,6 +111,19 @@ let myLocation: LatLng | null = null
 let unloadHooked = false
 let selectHandler: ((id: string) => void) | null = null
 let locateErrorTimer: ReturnType<typeof setTimeout> | null = null
+/** The "Show on map" pin: drawn even before (or without) its cell loading. */
+let focusPin: Pin | null = null
+let appliedFocusSeq = 0
+/** The style is loaded and our layers are on it (false between setStyle and style.load). */
+let styleReady = false
+/**
+ * The ring of the last "Show on map": it pulses for HIGHLIGHT_MS once the map
+ * has arrived (a flight can take a couple of seconds) and the ring is drawn
+ * (the style may still be loading). `timer` is the backstop until then.
+ */
+let ring: { id: string; arrived: boolean; drawn: boolean; started: boolean; timer: ReturnType<typeof setTimeout> } | null =
+  null
+let pulseFrame = 0
 
 const status = ref<MapStatus>('idle')
 /** Viewport at zoom >= 11 still needs more than 9 cells: treat like the zoom hint. */
@@ -188,7 +215,7 @@ function installStyleContent(m: MapLibreMap): void {
   if (!m.getSource(SRC_PINS)) {
     m.addSource(SRC_PINS, {
       type: 'geojson',
-      data: pinsToFeatureCollection(lastPins, usePinsStore().verifiedOnly) as never,
+      data: pinsToFeatureCollection(lastPins, usePinsStore().verifiedOnly, focusPin) as never,
       cluster: true,
       clusterRadius: 50,
       clusterMaxZoom: 14,
@@ -249,13 +276,145 @@ function installStyleContent(m: MapLibreMap): void {
 function pushPins(): void {
   const src = map?.getSource<GeoJSONSource>(SRC_PINS)
   if (!src) return
-  src.setData(pinsToFeatureCollection(lastPins, usePinsStore().verifiedOnly) as never)
+  src.setData(pinsToFeatureCollection(lastPins, usePinsStore().verifiedOnly, focusPin) as never)
 }
 
 function pushMe(): void {
   const src = map?.getSource<GeoJSONSource>(SRC_ME)
   if (!src) return
   src.setData(meCollection(myLocation) as never)
+}
+
+// ---- "Show on map": fly to a pin and ring it ------------------------------
+
+function prefersReducedMotion(): boolean {
+  try {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  } catch {
+    return false
+  }
+}
+
+function stopPulse(): void {
+  if (pulseFrame) cancelAnimationFrame(pulseFrame)
+  pulseFrame = 0
+}
+
+/** Removes the ring (after HIGHLIGHT_MS, or before a new one). */
+function clearHighlight(): void {
+  stopPulse()
+  if (ring) clearTimeout(ring.timer)
+  ring = null
+  const m = map
+  if (m && styleReady) {
+    if (m.getLayer(LAYER_HIGHLIGHT)) m.removeLayer(LAYER_HIGHLIGHT)
+    if (m.getSource(SRC_HIGHLIGHT)) m.removeSource(SRC_HIGHLIGHT)
+  }
+}
+
+/** Rings the highlighted pin, under its marker; pulses unless reduced motion. */
+function drawHighlight(): void {
+  const m = map
+  const pin = focusPin
+  if (!m || !styleReady || !pin || useMapStore().highlightedPinId !== pin.id) return
+  const color = themeFor(currentSeason()).marker.highlight
+  const data = {
+    type: 'FeatureCollection' as const,
+    features: [
+      {
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [pin.geo.longitude, pin.geo.latitude] },
+        properties: { id: pin.id },
+      },
+    ],
+  }
+  const src = m.getSource<GeoJSONSource>(SRC_HIGHLIGHT)
+  if (src) src.setData(data as never)
+  else m.addSource(SRC_HIGHLIGHT, { type: 'geojson', data: data as never })
+  if (!m.getLayer(LAYER_HIGHLIGHT)) {
+    m.addLayer(
+      {
+        id: LAYER_HIGHLIGHT,
+        type: 'circle',
+        source: SRC_HIGHLIGHT,
+        paint: {
+          'circle-radius': 22,
+          'circle-color': color,
+          'circle-opacity': 0.2,
+          'circle-stroke-color': color,
+          'circle-stroke-width': 4,
+          'circle-stroke-opacity': 0.95,
+        },
+      },
+      // Under the pin's marker, so the ring surrounds it.
+      m.getLayer(LAYER_PINS) ? LAYER_PINS : undefined,
+    )
+  }
+  if (ring?.id === pin.id) {
+    ring.drawn = true
+    startRingClock()
+  }
+  if (pulseFrame || prefersReducedMotion() || typeof requestAnimationFrame !== 'function') return
+  const start = performance.now()
+  const step = (now: number): void => {
+    const mm = map
+    if (!mm || !styleReady || !mm.getLayer(LAYER_HIGHLIGHT)) {
+      pulseFrame = 0
+      return
+    }
+    const t = ((now - start) % PULSE_MS) / PULSE_MS
+    mm.setPaintProperty(LAYER_HIGHLIGHT, 'circle-radius', 16 + 26 * t)
+    mm.setPaintProperty(LAYER_HIGHLIGHT, 'circle-stroke-opacity', 0.4 + 0.6 * (1 - t))
+    mm.setPaintProperty(LAYER_HIGHLIGHT, 'circle-opacity', 0.3 * (1 - t))
+    pulseFrame = requestAnimationFrame(step)
+  }
+  pulseFrame = requestAnimationFrame(step)
+}
+
+/** Ends the ring HIGHLIGHT_MS after it is both drawn and the map has arrived. */
+function startRingClock(): void {
+  const r = ring
+  // Not while the rules or welcome cover the map (e.g. after "Sign in to see
+  // it on the map"): the ring is for the user to see.
+  if (!r || r.started || !r.arrived || !r.drawn || useMapStore().covered) return
+  r.started = true
+  clearTimeout(r.timer)
+  r.timer = setTimeout(() => endRing(r.id), HIGHLIGHT_MS)
+}
+
+function endRing(id: string): void {
+  if (ring?.id !== id) return
+  clearHighlight()
+  useMapStore().clearHighlight(id)
+  // From now on the pin shows only as its cell has it (so a pin hidden by
+  // votes later leaves the map like any other).
+  if (focusPin?.id === id) {
+    focusPin = null
+    pushPins()
+  }
+}
+
+/** A new "Show on map" request, once the map exists: move there, draw the pin, ring it. */
+function applyFocus(req: FocusRequest | null): void {
+  const m = map
+  if (!m || !req || req.seq === appliedFocusSeq) return
+  appliedFocusSeq = req.seq
+  clearHighlight()
+  focusPin = req.pin
+  // Our own move: "centre on the user" mustn't jump away from the pin.
+  userMoved = true
+  const id = req.pin.id
+  const r = { id, arrived: false, drawn: false, started: false, timer: setTimeout(() => endRing(id), RING_BACKSTOP_MS) }
+  ring = r
+  m.once('moveend', () => {
+    r.arrived = true
+    if (ring === r) startRingClock()
+  })
+  const center: [number, number] = [req.pin.geo.longitude, req.pin.geo.latitude]
+  if (prefersReducedMotion()) m.jumpTo({ center, zoom: FOCUS_ZOOM })
+  else m.flyTo({ center, zoom: FOCUS_ZOOM })
+  pushPins()
+  drawHighlight()
 }
 
 // ---- Data ---------------------------------------------------------------
@@ -370,7 +529,12 @@ function wire(m: MapLibreMap): void {
       console.error('[map] could not add layers', e)
     }
     styleLoadedOnce = true
+    styleReady = true
     status.value = 'ready'
+    // A ring waiting for the style, or running when the season's style
+    // swapped, is drawn (again).
+    if (ring) drawHighlight()
+    applyFocus(useMapStore().focusRequest)
     scheduleRefresh(0)
   })
   m.on('styleimagemissing', (e: { id?: string }) => {
@@ -432,6 +596,9 @@ async function createMap(): Promise<MapLibreMap | null> {
     })
     m.touchZoomRotate.disableRotation()
     map = m
+    // Development builds only (the E2E suite runs on the dev server): lets
+    // tests read the one browse map's camera and layers. Never in production.
+    if (import.meta.env.DEV) (window as unknown as { __porchlightMap?: MapLibreMap }).__porchlightMap = m
     wire(m)
     hookUnload()
     if (!useMapStore().center) void centerOnUserIfGranted()
@@ -485,6 +652,7 @@ export function useMap(host: Ref<HTMLElement | null>, options: UseMapOptions = {
   selectHandler = options.onSelectPin ?? null
   const season = useSeasonStore()
   const pins = usePinsStore()
+  const mapStore = useMapStore()
 
   /** Show the map in the host: creates the single Map the first time, reattaches after. */
   async function activate(): Promise<void> {
@@ -497,6 +665,7 @@ export function useMap(host: Ref<HTMLElement | null>, options: UseMapOptions = {
       await creating
     }
     resize()
+    applyFocus(mapStore.focusRequest)
   }
 
   function resize(): void {
@@ -545,6 +714,8 @@ export function useMap(host: Ref<HTMLElement | null>, options: UseMapOptions = {
     (next, prev) => {
       if (!map || !next || next === prev) return
       lastPins = []
+      styleReady = false
+      stopPulse()
       refreshSeq++
       useMapStore().truncated = false
       pushPins()
@@ -555,6 +726,16 @@ export function useMap(host: Ref<HTMLElement | null>, options: UseMapOptions = {
 
   // Verified only: client-side filter of what's already loaded.
   watch(() => pins.verifiedOnly, pushPins)
+
+  // "Show on map" (SPEC F3): fly the one map to the pin and ring it.
+  watch(
+    () => mapStore.focusRequest,
+    (req) => applyFocus(req),
+  )
+  watch(
+    () => mapStore.covered,
+    () => startRingClock(),
+  )
 
   // A vote/report patched or dropped a cached pin: redraw from the cell cache
   // (cache hits, no queries) so a pin hidden by votes leaves the map now.

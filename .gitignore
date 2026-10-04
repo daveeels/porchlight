@@ -29,3 +29,6 @@ Thumbs.db
 test-results/
 playwright-report/
 tests/e2e/__screenshots__/
+
+# Emulator exports written on exit by ad-hoc emulator runs
+firebase-export-*/

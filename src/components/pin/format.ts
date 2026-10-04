@@ -39,3 +39,13 @@ export function formatDistance(km: number): string {
   if (km < 1) return `${Math.max(10, Math.round((km * 1000) / 10) * 10)} m`
   return `${km < 10 ? km.toFixed(1) : Math.round(km)} km`
 }
+
+/**
+ * The card's map action (SPEC F3 "Show on map"): 'show' when the map is
+ * allowed now, 'sign-in' when signing in would allow it, else none (map OFF).
+ */
+export function mapAction(allowedNow: boolean, signedIn: boolean, allowedSignedIn: boolean): 'show' | 'sign-in' | null {
+  if (allowedNow) return 'show'
+  if (!signedIn && allowedSignedIn) return 'sign-in'
+  return null
+}

@@ -49,8 +49,16 @@ class FakeMap {
     this.handlers.set(key, [...(this.handlers.get(key) ?? []), fn])
     return this
   }
+  once(type: string, fn: Handler) {
+    const wrap: Handler = (e) => {
+      this.handlers.set(type, (this.handlers.get(type) ?? []).filter((h) => h !== wrap))
+      fn(e)
+    }
+    this.handlers.set(type, [...(this.handlers.get(type) ?? []), wrap])
+    return this
+  }
   fire(type: string, e?: unknown) {
-    for (const fn of this.handlers.get(type) ?? []) fn(e)
+    for (const fn of [...(this.handlers.get(type) ?? [])]) fn(e)
   }
   hasImage() {
     return false
@@ -66,9 +74,20 @@ class FakeMap {
   getLayer(id: string) {
     return this.layers.get(id)
   }
-  addLayer(layer: Record<string, unknown>) {
+  beforeIds = new Map<string, string | undefined>()
+  addLayer(layer: Record<string, unknown>, beforeId?: string) {
     this.layers.set(layer.id as string, layer)
+    this.beforeIds.set(layer.id as string, beforeId)
   }
+  removeLayer(id: string) {
+    this.layers.delete(id)
+  }
+  removeSource(id: string) {
+    this.sources.delete(id)
+  }
+  setPaintProperty = vi.fn()
+  flyTo = vi.fn()
+  jumpTo = vi.fn()
   getZoom() {
     return 10
   }
@@ -88,8 +107,9 @@ vi.mock('maplibre-gl', () => ({ Map: FakeMap, setWorkerUrl }))
 vi.mock('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url', () => ({ default: '/assets/maplibre-worker.js' }))
 vi.mock('maplibre-gl/dist/maplibre-gl.css', () => ({}))
 
-import { MAP_TEXT_FONT, pinsToFeatureCollection, useMap } from '@/composables/useMap'
+import { HIGHLIGHT_MS, LAYER_HIGHLIGHT, MAP_TEXT_FONT, pinsToFeatureCollection, useMap } from '@/composables/useMap'
 import { SEASON_THEMES } from '@/config/seasons'
+import { FOCUS_ZOOM, useMapStore } from '@/stores/map'
 import { useSeasonStore } from '@/stores/season'
 
 beforeAll(() => {
@@ -111,6 +131,13 @@ describe('pinsToFeatureCollection', () => {
 
   it('verified only drops unverified pins', () => {
     expect(pinsToFeatureCollection(pins, true).features.map((f) => f.properties.id)).toEqual(['a'])
+  })
+
+  it('always draws the "Show on map" pin, even unloaded or unverified', () => {
+    const extra = { id: 'c', title: 'C', verified: false, isFeatured: false, geo: { latitude: -37.5, longitude: 176 } } as unknown as Pin
+    expect(pinsToFeatureCollection(pins, true, extra).features.map((f) => f.properties.id)).toEqual(['a', 'c'])
+    expect(pinsToFeatureCollection(pins, true, pins[1]!).features.map((f) => f.properties.id)).toEqual(['a', 'b'])
+    expect(pinsToFeatureCollection(pins, false, pins[0]!).features).toHaveLength(2) // no duplicate
   })
 })
 
@@ -154,5 +181,55 @@ describe('useMap', () => {
     // Re-activating reuses the map.
     await activate()
     expect(created).toHaveLength(1)
+  })
+
+  it('"Show on map" flies the same map to the pin, draws it and rings it for a few seconds', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      const m = created[0]!
+      const pin = {
+        id: 'far_HALLOWEEN_2026',
+        title: 'Far away',
+        verified: false,
+        isFeatured: false,
+        geo: { latitude: -37.71, longitude: 176.31 },
+      } as unknown as Pin
+      useMapStore().focusPin(pin)
+      await nextTick()
+
+      expect(created).toHaveLength(1)
+      expect(m.flyTo).toHaveBeenCalledWith({ center: [176.31, -37.71], zoom: FOCUS_ZOOM })
+      // Drawn even though no cell has loaded it.
+      const data = m.sources.get('pl-pins')!.setData.mock.lastCall![0] as { features: { properties: { id: string } }[] }
+      expect(data.features.map((f) => f.properties.id)).toContain(pin.id)
+      // The ring sits under the pin markers.
+      expect(m.layers.has(LAYER_HIGHLIGHT)).toBe(true)
+      expect(m.beforeIds.get(LAYER_HIGHLIGHT)).toBe('pl-pins-unclustered')
+      expect(useMapStore().highlightedPinId).toBe(pin.id)
+
+      // It pulses for HIGHLIGHT_MS once the flight has arrived.
+      m.fire('moveend')
+      vi.advanceTimersByTime(HIGHLIGHT_MS - 100)
+      expect(m.layers.has(LAYER_HIGHLIGHT)).toBe(true)
+      vi.advanceTimersByTime(100)
+      expect(m.layers.has(LAYER_HIGHLIGHT)).toBe(false)
+      expect(useMapStore().highlightedPinId).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('"Show on map" jumps instead of flying with reduced motion', async () => {
+    const m = created[0]!
+    const original = window.matchMedia
+    window.matchMedia = ((q: string) => ({ matches: q.includes('reduce'), media: q })) as typeof window.matchMedia
+    try {
+      const pin = { id: 'near_HALLOWEEN_2026', title: 'Near', verified: true, isFeatured: false, geo: { latitude: -37.69, longitude: 176.17 } } as unknown as Pin
+      useMapStore().focusPin(pin)
+      await nextTick()
+      expect(m.jumpTo).toHaveBeenCalledWith({ center: [176.17, -37.69], zoom: FOCUS_ZOOM })
+    } finally {
+      window.matchMedia = original
+    }
   })
 })

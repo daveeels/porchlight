@@ -5,6 +5,7 @@
 import { computed, ref, watch } from 'vue'
 import { IonAvatar, IonButton, actionSheetController } from '@ionic/vue'
 import { useAccountMenu } from '@/components/common/accountMenu'
+import { openBackEntry } from '@/lib/backStack'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
@@ -25,11 +26,27 @@ watch(
 )
 
 async function openMenu(): Promise<void> {
+  let chosen: (() => void) | null = null
   const sheet = await actionSheetController.create({
     header: auth.user?.displayName || auth.user?.email || 'Your account',
-    buttons: menu.actionSheetButtons(),
+    buttons: menu.actionSheetButtons((action) => {
+      chosen = action
+    }),
+  })
+  // Back closes the menu. A chosen page or modal opens only once the menu's
+  // history entry is gone, so it never lands on (or is popped with) it.
+  // Taken before the sheet animates in, so an early Back is caught too.
+  let backed = false
+  const back = openBackEntry(() => {
+    backed = true
+    void sheet.dismiss(undefined, 'cancel')
   })
   await sheet.present()
+  if (backed) void sheet.dismiss(undefined, 'cancel')
+  await sheet.onDidDismiss()
+  await back.close()
+  const run = chosen as (() => void) | null
+  run?.()
 }
 </script>
 

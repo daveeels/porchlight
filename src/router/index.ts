@@ -12,12 +12,21 @@ declare module 'vue-router' {
 }
 
 // ExplorePage (/) is the root of the Ionic stack and must never be replaced
-// (SPEC F2). Share links are redirect routes onto it.
+// (SPEC F2). Share links are redirect routes onto it. A card or "Show on map"
+// opened in the app pushes a same-route, query-only entry (useExploreHistory):
+// IonRouterOutlet reuses the one ExplorePage for those.
 const routes: RouteRecordRaw[] = [
   { path: '/', name: 'explore', component: ExplorePage },
   { path: '/a/:areaKey', redirect: (to) => ({ path: '/', query: { area: to.params.areaKey } }) },
   { path: '/t/:townKey', redirect: (to) => ({ path: '/', query: { town: to.params.townKey } }) },
-  { path: '/p/:pinId', redirect: (to) => ({ path: '/', query: { pin: to.params.pinId } }) },
+  // /p/<id>?view=map opens straight on the map at that display (SPEC F3).
+  {
+    path: '/p/:pinId',
+    redirect: (to) => ({
+      path: '/',
+      query: to.query.view === 'map' ? { pin: to.params.pinId, view: 'map' } : { pin: to.params.pinId },
+    }),
+  },
   { path: '/sign-in', name: 'sign-in', component: () => import('@/views/SignInPage.vue') },
   // Email sign-in links land here (SPEC F11).
   { path: '/auth/complete', name: 'auth-complete', component: () => import('@/views/AuthCompletePage.vue') },

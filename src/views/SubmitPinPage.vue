@@ -2,7 +2,10 @@
 // /submit — Add my display (SPEC F5): location → photo → details → preview →
 // submit → success. /submit?edit=1 edits the current pin: photo (optional) →
 // details → preview, no location step (location can't change). Auth-guarded.
-import { computed, ref, shallowRef, watch } from 'vue'
+// Each step after the first has a Back history entry (src/lib/backStack), so
+// the phone's Back goes to the previous step with everything kept; on the
+// first step Back leaves the page as before.
+import { computed, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   IonButton,
@@ -27,6 +30,7 @@ import SubmitError from '@/components/submit/SubmitError.vue'
 import { FINAL_SUBMIT_REASONS } from '@/components/submit/validation'
 import type { LatLng } from '@/composables/useLocationPicker'
 import type { PreparedImage } from '@/lib/image'
+import { openBackEntry, settled, type BackEntry } from '@/lib/backStack'
 import { PIN_WRITE_MESSAGES, PinWriteError, toPinWriteError, type PinWriteReason } from '@/services/pinWrites'
 import { SEASON_THEMES } from '@/config/seasons'
 import { useAppConfigStore } from '@/stores/appConfig'
@@ -67,7 +71,33 @@ const createdPinId = ref<string | null>(null)
  */
 let preparedFor: string | null = null
 
+// ---- Back history: stepEntries[i] is the entry for steps[i + 1] ----------
+
+const stepEntries: BackEntry[] = []
+
+function pushStepEntry(): void {
+  const entry = openBackEntry(() => {
+    // Can't stop an upload half way: stay on this step.
+    if (busy.value) return false
+    const i = stepEntries.indexOf(entry)
+    if (i === -1) return
+    stepEntries.splice(i)
+    submitError.value = null
+    step.value = steps.value[i] ?? steps.value[0] ?? 'location'
+  })
+  stepEntries.push(entry)
+}
+
+/** Drops the entries of steps after steps[index] (top first, so each is popped). */
+function dropStepEntries(index: number): void {
+  const dropped = stepEntries.splice(Math.max(0, index))
+  for (const e of dropped.reverse()) void e.close()
+}
+
+onUnmounted(() => dropStepEntries(0))
+
 function reset(): void {
+  dropStepEntries(0)
   step.value = steps.value[0] ?? 'location'
   location.value = null
   photo.value = null
@@ -152,7 +182,17 @@ const stepLabel = computed(() =>
 
 function goTo(next: Step): void {
   submitError.value = null
+  const from = stepIndex.value
+  const to = steps.value.indexOf(next)
+  if (from >= 0 && to > from) for (let i = from; i < to; i++) pushStepEntry()
+  else if (to >= 0 && to < from) dropStepEntries(to)
   step.value = next
+}
+
+/** Finished: no step entries left, so Back from here (or from /me) leaves the form. */
+function showSuccess(): void {
+  dropStepEntries(0)
+  step.value = 'success'
 }
 
 function nextStep(): void {
@@ -161,7 +201,8 @@ function nextStep(): void {
   if (n) goTo(n)
 }
 
-function leave(): void {
+async function leave(): Promise<void> {
+  await settled()
   if (ionRouter.canGoBack()) router.back()
   else void router.replace(isEdit.value ? '/me' : '/')
 }
@@ -170,7 +211,7 @@ function back(): void {
   const i = stepIndex.value
   const prev = i > 0 ? steps.value[i - 1] : undefined
   if (prev && !busy.value && step.value !== 'success') goTo(prev)
-  else leave()
+  else void leave()
 }
 
 async function submit(): Promise<void> {
@@ -211,7 +252,7 @@ async function submit(): Promise<void> {
         onProgress,
       )
     }
-    step.value = 'success'
+    showSuccess()
   } catch (e) {
     const err = toPinWriteError(e)
     // The rules changed since this device last checked: agree, then send again.
@@ -224,8 +265,9 @@ async function submit(): Promise<void> {
   if (retry) await submit()
 }
 
-function toMyDisplay(): void {
+async function toMyDisplay(): Promise<void> {
   // Replace so Back from /me doesn't return to a finished form.
+  await settled()
   void router.replace('/me')
 }
 </script>

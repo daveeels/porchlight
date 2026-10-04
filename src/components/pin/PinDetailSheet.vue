@@ -1,18 +1,24 @@
 <script setup lang="ts">
 // SPEC F3. Bottom sheet driven by usePinsStore().selectedPinId (set from ?pin=).
 // Votes and reports live in VoteBar / ReportButton (F7/F8), never on your own pin.
+// Opened from inside the app it has its own history entry (useExploreHistory),
+// so Back closes it; closing it any other way pops that entry too.
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { IonButton, IonContent, IonIcon, IonModal, IonNote } from '@ionic/vue'
-import { alertCircleOutline, navigateOutline, shareSocialOutline } from 'ionicons/icons'
+import { alertCircleOutline, mapOutline, navigateOutline, shareSocialOutline } from 'ionicons/icons'
 import StateMessage from '@/components/common/StateMessage.vue'
+import { useExploreHistory } from '@/composables/useExploreHistory'
+import { showOnMapPath } from '@/lib/exploreHistory'
 import { googleMapsUrl, openInMaps } from '@/lib/mapsLink'
+import { useAppConfigStore } from '@/stores/appConfig'
 import { useAuthStore } from '@/stores/auth'
 import { usePinsStore } from '@/stores/pins'
+import type { Pin } from '@/types/models'
 import VerifiedBadge from './VerifiedBadge.vue'
 import ReportButton from './ReportButton.vue'
 import VoteBar from './VoteBar.vue'
-import { hereCountLong, notThereCountLong, pinShareUrl, placeLine } from './format'
+import { hereCountLong, mapAction, notThereCountLong, pinShareUrl, placeLine } from './format'
 import { showToast } from './toast'
 
 const props = defineProps<{
@@ -20,10 +26,14 @@ const props = defineProps<{
   suspended?: boolean
 }>()
 
+const emit = defineEmits<{ showOnMap: [pin: Pin] }>()
+
 const pins = usePinsStore()
 const auth = useAuthStore()
+const appConfig = useAppConfigStore()
 const route = useRoute()
 const router = useRouter()
+const nav = useExploreHistory()
 
 const isOpen = computed(() => !!pins.selectedPinId && !props.suspended)
 const isOwn = computed(() => !!auth.uid && pins.selectedPin?.ownerId === auth.uid)
@@ -40,13 +50,9 @@ const notFound = computed(
 /** Plain web link for long-press / copy; a tap goes through openInMaps (native Maps app where it helps). */
 const mapsWebUrl = computed(() => (pin.value ? googleMapsUrl(pin.value.geo.latitude, pin.value.geo.longitude) : undefined))
 
-/** Clears the selection and drops ?pin from the URL. */
+/** Clears the selection and removes the card's history entry (or ?pin). */
 function close(): void {
-  void pins.selectPin(null)
-  if (route.name === 'explore' && route.query.pin !== undefined) {
-    const { pin: _pin, ...query } = route.query
-    void router.replace({ query })
-  }
+  void nav.closePin()
 }
 
 /** Only a dismissal by the user clears the selection (not a suspend). */
@@ -67,6 +73,19 @@ function openMaps(e: Event): void {
   if (!p) return
   e.preventDefault()
   openInMaps(p.geo.latitude, p.geo.longitude)
+}
+
+/** "Show on map" (SPEC F3): signed in → the map at this pin; signed out → sign in first; map OFF → hidden. */
+const mapLink = computed(() =>
+  auth.ready ? mapAction(appConfig.mapAllowed(auth.isSignedIn), auth.isSignedIn, appConfig.mapAllowed(true)) : null,
+)
+
+function showOnMap(): void {
+  const p = pin.value
+  if (!p) return
+  if (mapLink.value === 'show') emit('showOnMap', p)
+  // Back from sign-in returns to this card; signing in lands on the map at it.
+  else void router.push({ path: '/sign-in', query: { redirect: showOnMapPath(p.id) } })
 }
 
 function retry(): void {
@@ -156,6 +175,10 @@ async function share(): Promise<void> {
             <ion-button :href="mapsWebUrl" target="_blank" rel="noopener" fill="clear" class="link-btn" @click="openMaps">
               <ion-icon slot="start" :icon="navigateOutline" aria-hidden="true" />
               Open in Maps
+            </ion-button>
+            <ion-button v-if="mapLink" fill="clear" class="link-btn" data-testid="show-on-map" @click="showOnMap">
+              <ion-icon slot="start" :icon="mapOutline" aria-hidden="true" />
+              {{ mapLink === 'show' ? 'Show on map' : 'Sign in to see it on the map' }}
             </ion-button>
             <ion-button fill="clear" class="link-btn" @click="share">
               <ion-icon slot="start" :icon="shareSocialOutline" aria-hidden="true" />

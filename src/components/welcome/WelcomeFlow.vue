@@ -9,6 +9,7 @@ import { useRoute } from 'vue-router'
 import { IonButton, IonModal } from '@ionic/vue'
 import { SEASON_THEMES } from '@/config/seasons'
 import { welcomeCard, type WelcomeStep } from '@/config/welcome'
+import { openBackEntry, type BackEntry } from '@/lib/backStack'
 import { useAppConfigStore } from '@/stores/appConfig'
 import { usePinsStore } from '@/stores/pins'
 import { useSeasonStore } from '@/stores/season'
@@ -95,7 +96,22 @@ watch(
   },
 )
 
+// Back = Skip (SPEC F14): the open cards own one history entry, so the
+// phone's Back closes them instead of leaving Porchlight.
+let backEntry: BackEntry | null = null
+
+function onDidPresent(): void {
+  focusHeading()
+  backEntry ??= openBackEntry(() => {
+    backEntry = null
+    welcome.finish()
+  })
+}
+
 function onDidDismiss(): void {
+  // Dropped before closed(): the rules may open next and add their own entry.
+  void backEntry?.close()
+  backEntry = null
   welcome.closed()
   // Unmount on a later task: IonModal re-renders on didDismiss itself.
   setTimeout(() => {
@@ -151,7 +167,7 @@ function onTouchEnd(e: TouchEvent): void {
     :animated="!reducedMotion"
     class="welcome-modal"
     aria-labelledby="welcome-title"
-    @did-present="focusHeading"
+    @did-present="onDidPresent"
     @did-dismiss="onDidDismiss"
   >
     <div

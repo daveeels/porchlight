@@ -4,7 +4,8 @@
 import { expect, test, type APIRequestContext, type Locator, type Page, type TestInfo } from '@playwright/test'
 import { FIRST_LOAD, PIN_ID, snap } from './helpers'
 
-const OOB_CODES = 'http://127.0.0.1:9099/emulator/v1/projects/demo-porchlight/oobCodes'
+// emulators:exec says where the Auth emulator is; 9099 is firebase.json's port.
+const OOB_CODES = `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099'}/emulator/v1/projects/demo-porchlight/oobCodes`
 const EMAIL_KEY = 'porchlight.emailForSignIn'
 
 interface OobCode {

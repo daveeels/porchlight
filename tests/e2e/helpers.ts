@@ -76,3 +76,58 @@ export async function loadAllPages(page: Page): Promise<void> {
     await expect(page.locator('ion-button', { hasText: 'Loading…' })).toHaveCount(0)
   }
 }
+
+/**
+ * Exactly one ExplorePage in the Ionic stack (a query-only history entry
+ * must reuse it, CLAUDE.md rule 5) and at most one browse map.
+ */
+export async function expectSingleExplore(page: Page): Promise<void> {
+  const explorePages = page
+    .locator('ion-router-outlet > .ion-page')
+    .filter({ has: page.locator('ion-segment[aria-label="View"]') })
+  await expect(explorePages).toHaveCount(1)
+  expect(await page.locator('.maplibregl-map').count()).toBeLessThanOrEqual(1)
+}
+
+/** The List | Map segment button that is selected ("list" or "map"). */
+export async function selectedSegment(page: Page): Promise<string | null> {
+  return page.locator('ion-segment[aria-label="View"]').evaluate((el) => (el as HTMLElement & { value?: string }).value ?? null)
+}
+
+/** The browse map's centre, via the dev-only test hook (useMap.ts). */
+export async function browseMapCenter(page: Page): Promise<{ lat: number; lng: number } | null> {
+  return page.evaluate(() => {
+    const m = (window as unknown as { __porchlightMap?: { getCenter(): { lat: number; lng: number } } }).__porchlightMap
+    const c = m?.getCenter()
+    return c ? { lat: c.lat, lng: c.lng } : null
+  })
+}
+
+/** Metres between two points (haversine). */
+export function metresBetween(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6_371_000
+  const rad = (d: number) => (d * Math.PI) / 180
+  const dLat = rad(b.lat - a.lat)
+  const dLng = rad(b.lng - a.lng)
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(h))
+}
+
+/** Pulls the open display sheet up to its top breakpoint, so the links and Report are on screen. */
+export async function raiseSheet(page: Page): Promise<void> {
+  const sheet = page.locator('ion-modal').filter({ has: page.getByTestId('pin-counts') })
+  type Sheet = HTMLElement & { setCurrentBreakpoint(b: number): Promise<void>; getCurrentBreakpoint(): Promise<number> }
+  // A breakpoint set while the sheet is still sliding in is ignored: retry until it sticks.
+  await expect
+    .poll(async () => {
+      await sheet.evaluate((m) => (m as Sheet).setCurrentBreakpoint(0.95))
+      await page.waitForTimeout(300)
+      return sheet.evaluate((m) => (m as Sheet).getCurrentBreakpoint())
+    })
+    .toBe(0.95)
+  // Long descriptions push Report below the fold on small phones: scroll the sheet.
+  await sheet
+    .locator('ion-content')
+    .evaluate((c) => (c as HTMLElement & { scrollToBottom(d?: number): Promise<void> }).scrollToBottom(0))
+  await page.waitForTimeout(200)
+}

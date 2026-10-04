@@ -1,9 +1,12 @@
 <script setup lang="ts">
 // SPEC F1/F2, §7 "/". The root of the Ionic stack: never replaced. Area, town
-// and pin selection live in the query (?area= / ?town= / ?pin=) and change
-// only through router.replace; the query drives the stores.
+// and pin selection live in the query (?area= / ?town= / ?pin= / ?view=map)
+// and the query drives the stores. Area and town changes use router.replace;
+// opening a card or "Show on map" pushes ONE same-route entry so Back closes
+// it (useExploreHistory: a query-only push reuses this page, never a second
+// ExplorePage or map).
 import { computed, ref, watch } from 'vue'
-import { useRoute, useRouter, type LocationQuery } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
   IonButton,
   IonButtons,
@@ -34,13 +37,20 @@ import OfflineBanner from '@/components/common/OfflineBanner.vue'
 import StateMessage from '@/components/common/StateMessage.vue'
 import InstallPrompt from '@/components/install/InstallPrompt.vue'
 import PinDetailSheet from '@/components/pin/PinDetailSheet.vue'
+import { useExploreHistory } from '@/composables/useExploreHistory'
 import { AREAS } from '@/config/areas'
 import { SEASON_THEMES } from '@/config/seasons'
+import { settled } from '@/lib/backStack'
+import { exploreIntent, isSheetEntry, queryString } from '@/lib/exploreHistory'
 import type { PlaceResult } from '@/lib/search'
 import { useAppConfigStore } from '@/stores/appConfig'
+import { useAuthStore } from '@/stores/auth'
 import { usePinsStore } from '@/stores/pins'
+import { useMapStore } from '@/stores/map'
 import { useSeasonStore } from '@/stores/season'
-import type { PlaceSelection } from '@/types/models'
+import { useTermsStore } from '@/stores/terms'
+import { useWelcomeStore } from '@/stores/welcome'
+import type { Pin, PlaceSelection } from '@/types/models'
 
 type Segment = 'list' | 'map'
 type PlaceSel = { kind: 'area' | 'town'; key: string }
@@ -50,6 +60,18 @@ const router = useRouter()
 const appConfig = useAppConfigStore()
 const season = useSeasonStore()
 const pins = usePinsStore()
+const auth = useAuthStore()
+const nav = useExploreHistory()
+const terms = useTermsStore()
+const welcome = useWelcomeStore()
+const mapStore = useMapStore()
+
+// The "Show on map" ring waits while the rules or welcome cover the map.
+watch(
+  () => terms.isOpen || welcome.isOpen,
+  (covered) => mapStore.setCovered(covered),
+  { immediate: true },
+)
 
 const segment = ref<Segment>('list')
 /** False while another route covers this page (e.g. /sign-in). */
@@ -67,15 +89,16 @@ onIonViewWillLeave(() => {
 
 function onSegment(e: CustomEvent): void {
   const v = (e.detail as { value?: unknown }).value
-  if (v === 'list' || v === 'map') segment.value = v
+  if ((v !== 'list' && v !== 'map') || v === segment.value) return
+  segment.value = v
+  // Back to the list by hand from a "Show on map" entry: drop that entry, so
+  // a later Back doesn't land on a map URL showing the list.
+  if (v === 'list') void nav.leaveMap()
 }
 
 // ---- Query -> stores -------------------------------------------------------
 
-function str(v: LocationQuery[string] | undefined): string | null {
-  const s = Array.isArray(v) ? v[0] : v
-  return typeof s === 'string' && s.trim() ? s.trim() : null
-}
+const str = queryString
 
 function sameSelection(a: PlaceSelection, b: PlaceSelection | null): boolean {
   if (!b || a.kind === 'nearMe' || b.kind === 'nearMe') return false
@@ -95,9 +118,37 @@ function applyQuery(): void {
   }
   if (sel && !sameSelection(sel, pins.selection)) void pins.setSelection(sel)
 
-  const pin = str(q.pin)
+  const { pin, map } = exploreIntent(q)
+  if (pin && !isSheetEntry(window.history.state, pin)) {
+    // Not opened from inside the app (a shared link, a sign-in redirect, an
+    // old URL): rebuild the history so the first Back lands on the list.
+    if (!arriving) void arrive(pin, map)
+    return
+  }
   if (pin !== pins.selectedPinId) void pins.selectPin(pin)
 }
+
+let arriving = false
+async function arrive(pin: string, wantsMap: boolean): Promise<void> {
+  arriving = true
+  try {
+    if (wantsMap) await auth.init()
+    await nav.arrive(pin, wantsMap && appConfig.mapAllowed(auth.isSignedIn))
+  } finally {
+    arriving = false
+  }
+}
+
+/** ?view=map shows the Map segment; Back off it (the param goes) shows the list again. */
+let lastView: string | null = null
+function syncView(): void {
+  if (route.name !== 'explore') return
+  const view = str(route.query.view)
+  if (view === 'map') segment.value = 'map'
+  else if (lastView === 'map') segment.value = 'list'
+  lastView = view
+}
+syncView()
 
 watch(
   () => season.eventId,
@@ -113,28 +164,45 @@ watch(
 watch(
   () => route.fullPath,
   () => {
-    if (route.name === 'explore') applyQuery()
+    if (route.name !== 'explore') return
+    syncView()
+    applyQuery()
   },
 )
 
 // ---- In-app selection -> query ---------------------------------------------
 
-function goPlace(sel: PlaceSel): void {
+// Area/town changes replace the current entry (Back doesn't walk through
+// places). settled() first: an overlay's history entry (e.g. the search
+// dropdown's) is popped before the replace, so the replace never lands on it.
+async function goPlace(sel: PlaceSel): Promise<void> {
   nearMeError.value = null
-  void router.replace({ query: sel.kind === 'area' ? { area: sel.key } : { town: sel.key } })
+  await settled()
+  await router.replace({ query: sel.kind === 'area' ? { area: sel.key } : { town: sel.key } })
 }
 
 function onSearchSelect(place: PlaceResult): void {
-  goPlace({ kind: place.kind, key: place.key })
+  void goPlace({ kind: place.kind, key: place.key })
+}
+
+function onChip(sel: PlaceSel): void {
+  void goPlace(sel)
 }
 
 function openPin(id: string): void {
-  void router.replace({ query: { ...route.query, pin: id } })
+  void nav.openPin(id)
+}
+
+/** "Show on map" from the card (signed in, map allowed): the map at this pin, ringed. */
+function showOnMap(pin: Pin): void {
+  const onMap = segment.value === 'map'
+  segment.value = 'map'
+  void nav.showOnMap(pin, onMap)
 }
 
 function browseDefault(): void {
   const key = appConfig.config.defaultAreaKey ?? AREAS[0]?.key
-  if (key) goPlace({ kind: 'area', key })
+  if (key) void goPlace({ kind: 'area', key })
 }
 
 async function nearMe(): Promise<void> {
@@ -145,6 +213,7 @@ async function nearMe(): Promise<void> {
     // loadNearMe sets the selection to nearMe synchronously, so the query
     // watcher keeps it instead of falling back to the default area.
     const loading = pins.loadNearMe(lat, lng)
+    await settled()
     const { area: _area, town: _town, ...rest } = route.query
     void router.replace({ query: rest })
     await loading
@@ -298,7 +367,7 @@ const nearMeMessage = computed(() => {
             <p v-if="subLine" class="pl-muted m-0 mt-0.5 text-sm font-bold">{{ subLine }}</p>
           </header>
 
-          <TownChips v-if="chipsAreaKey" :area-key="chipsAreaKey" :town-key="chipsTownKey" @select="goPlace" />
+          <TownChips v-if="chipsAreaKey" :area-key="chipsAreaKey" :town-key="chipsTownKey" @select="onChip" />
 
           <!-- SPEC F10: inline, never over results; shows itself only after real use. -->
           <InstallPrompt />
@@ -321,7 +390,7 @@ const nearMeMessage = computed(() => {
       </template>
     </ion-content>
 
-    <PinDetailSheet :suspended="!pageVisible" />
+    <PinDetailSheet :suspended="!pageVisible" @show-on-map="showOnMap" />
   </ion-page>
 </template>
 
