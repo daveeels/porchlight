@@ -3,7 +3,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef, watch } from 'vue'
 import { newUploadId } from '@/lib/uploadId'
-import { fetchPin } from '@/services/pins'
+import { fetchCreatesUsed, fetchPin } from '@/services/pins'
 import {
   createPin,
   deletePin,
@@ -47,6 +47,9 @@ export interface PinEditDraft {
   lightsUp?: boolean
 }
 
+/** New displays per user per season. Mirrors MAX_CREATES_PER_EVENT in functions/src/pins/createPin.ts (which enforces it). */
+export const CREATES_PER_SEASON = 3
+
 function cleanDescription(d: string): string | null {
   const t = d.trim()
   return t ? t : null
@@ -62,6 +65,11 @@ export const useMyPinStore = defineStore('myPin', () => {
   const loading = ref(false)
   const error = ref<unknown>(null)
   let pending: Promise<void> | null = null
+  /** Displays added this season (null until known, or if it couldn't be read). */
+  const createsUsed = ref<number | null>(null)
+  const createsLeft = computed(() =>
+    createsUsed.value === null ? null : Math.max(0, CREATES_PER_SEASON - createsUsed.value),
+  )
 
   const eventId = computed<EventId | null>(() => season.eventId)
   const pinId = computed(() => (auth.uid && eventId.value ? `${auth.uid}_${eventId.value}` : null))
@@ -97,6 +105,18 @@ export const useMyPinStore = defineStore('myPin', () => {
     if (pending && !force) return pending
     loading.value = true
     error.value = null
+    const uid = auth.uid
+    const ev = eventId.value
+    if (uid && ev) {
+      // Best effort: only the UI uses it.
+      fetchCreatesUsed(uid, ev)
+        .then((n) => {
+          if (pinId.value === id) createsUsed.value = n
+        })
+        .catch(() => {
+          if (pinId.value === id) createsUsed.value = null
+        })
+    }
     const p = fetchPin(id)
       .then((found) => {
         if (pinId.value !== id) return
@@ -187,8 +207,9 @@ export const useMyPinStore = defineStore('myPin', () => {
       pin.value = null
       loadedId.value = null
       error.value = null
+      createsUsed.value = null
     },
   )
 
-  return { pin, pinId, eventId, loaded, loading, error, load, create, update, remove }
+  return { pin, pinId, eventId, loaded, loading, error, createsLeft, load, create, update, remove }
 })

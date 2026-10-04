@@ -63,7 +63,8 @@ export const PIN_WRITE_MESSAGES: Record<PinWriteReason, string> = {
   ALREADY_EXISTS: "You've already added a display this season. You can edit it from My display.",
   REMOVED_BY_ADMIN: "Your display was removed by a moderator, so you can't add another this season.",
   UNDER_REVIEW: "Your display is under review, so you can't add a new one right now.",
-  CREATE_CAP: "You've reached the limit of new displays for this season.",
+  CREATE_CAP:
+    "You've added the most displays allowed this season (3). The limit stops displays being deleted and re-added to clear their votes.",
   INVALID_INPUT: "Something in the form isn't right. Check it and try again.",
   PHOTO_INVALID: "We couldn't use that photo. Try a different one — a JPEG or a screenshot works best.",
   NOT_FOUND: "We couldn't find your display. It may have been removed.",

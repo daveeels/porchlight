@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // A failed add/edit (SPEC F5 "Errors", §7 empty/error states), with the next
 // step that makes sense for each reason.
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { IonButton } from '@ionic/vue'
 import type { PinWriteError } from '@/services/pinWrites'
 import { useTermsStore } from '@/stores/terms'
@@ -21,6 +21,8 @@ const title = computed(() => {
       return 'Submissions closed'
     case 'RATE_LIMITED':
       return 'Try again tomorrow'
+    case 'CREATE_CAP':
+      return 'Season limit reached'
     case 'PHOTO_INVALID':
       return "That photo didn't work"
     case 'INVALID_INPUT':
@@ -32,6 +34,11 @@ const title = computed(() => {
   }
 })
 
+// It appears above the preview while the user is down at the submit button:
+// bring it on screen, or the preview card left there looks like success.
+const box = ref<HTMLElement | null>(null)
+onMounted(() => box.value?.scrollIntoView({ block: 'start', behavior: 'smooth' }))
+
 /** Agree to the community rules, then send the display again. */
 async function readRules(): Promise<void> {
   if (await terms.requireAgreement()) emit('retry')
@@ -42,7 +49,7 @@ const retryable = computed(() => ['UPLOAD_FAILED', 'NETWORK', 'UNKNOWN'].include
 </script>
 
 <template>
-  <div class="box flex flex-col gap-3 rounded-xl p-4" data-testid="submit-error">
+  <div ref="box" class="box flex flex-col gap-3 rounded-xl p-4" data-testid="submit-error">
     <div role="alert">
       <h2 class="pl-display m-0 text-xl">{{ title }}</h2>
       <p class="m-0 mt-1 text-sm">{{ error.message }}</p>

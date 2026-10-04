@@ -158,6 +158,7 @@ const blockedReason = computed<PinWriteReason | null>(() => {
   if (p.status === 'ACTIVE' || p.status === 'HIDDEN') return 'ALREADY_EXISTS'
   if (p.status === 'REMOVED' && p.removedBy === 'ADMIN') return 'REMOVED_BY_ADMIN'
   if (p.status === 'REMOVED' && p.hiddenReason === 'REPORTS') return 'UNDER_REVIEW'
+  if (myPin.createsLeft === 0) return 'CREATE_CAP'
   return null
 })
 
@@ -171,6 +172,8 @@ const blockedTitle = computed(() => {
       return 'Removed by a moderator'
     case 'UNDER_REVIEW':
       return 'Under review'
+    case 'CREATE_CAP':
+      return 'Season limit reached'
     default:
       return 'Nothing to edit'
   }

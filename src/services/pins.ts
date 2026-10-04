@@ -89,3 +89,13 @@ export async function fetchPin(pinId: string): Promise<Pin | null> {
     throw e
   }
 }
+
+/**
+ * How many displays this user has added this season (users/{uid}, readable by
+ * its owner only). The server enforces the limit; this is for the UI.
+ */
+export async function fetchCreatesUsed(uid: string, eventId: EventId): Promise<number> {
+  const snap = await getDoc(doc(db, 'users', uid))
+  const n = (snap.get('pinCreatesByEvent') as Record<string, unknown> | undefined)?.[eventId]
+  return typeof n === 'number' && n > 0 ? n : 0
+}

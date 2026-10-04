@@ -15,7 +15,7 @@ vi.mock('@/stores/auth', () => ({
 vi.mock('@/stores/season', () => ({
   useSeasonStore: () => ({ ready: true, eventId: 'HALLOWEEN_2026' }),
 }))
-vi.mock('@/services/pins', () => ({ fetchPin: vi.fn() }))
+vi.mock('@/services/pins', () => ({ fetchPin: vi.fn(), fetchCreatesUsed: vi.fn().mockResolvedValue(1) }))
 vi.mock('@/services/uploads', () => ({ uploadPhoto: vi.fn() }))
 vi.mock('@/services/pinWrites', async () => {
   const actual = await vi.importActual<typeof import('@/services/pinWrites')>('@/services/pinWrites')

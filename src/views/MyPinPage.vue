@@ -29,7 +29,7 @@ import { canChangePin, canEditPin, canReAdd, isUnderReview } from '@/components/
 import { SEASON_THEMES } from '@/config/seasons'
 import { toPinWriteError } from '@/services/pinWrites'
 import { useAuthStore } from '@/stores/auth'
-import { useMyPinStore } from '@/stores/myPin'
+import { CREATES_PER_SEASON, useMyPinStore } from '@/stores/myPin'
 import { useSeasonStore } from '@/stores/season'
 
 const auth = useAuthStore()
@@ -53,6 +53,14 @@ async function toast(message: string): Promise<void> {
   await t.present()
 }
 
+/** The delete warning's last line: how many new displays are still allowed this season. */
+function addsLeftText(): string {
+  const left = myPin.createsLeft
+  if (left === null) return `You can add up to ${CREATES_PER_SEASON} displays a season; a new one starts as Unverified.`
+  if (left === 0) return "This season's limit is reached, so you won't be able to add another display until next season."
+  return `You can add ${left} more ${left === 1 ? 'display' : 'displays'} this season; a new one starts as Unverified.`
+}
+
 async function confirmDelete(): Promise<void> {
   const alert = await alertController.create({
     header: 'Delete your display?',
@@ -61,7 +69,7 @@ async function confirmDelete(): Promise<void> {
     message:
       myPin.pin && isUnderReview(myPin.pin)
         ? "It will disappear from Porchlight straight away. Because it was reported, its photo is kept until a moderator has looked at it, and you can't add a new display until then."
-        : 'It will disappear from Porchlight straight away and its photo will be deleted. You can add it again later, but it starts as Unverified.',
+        : `It will disappear from Porchlight straight away and its photo will be deleted. ${addsLeftText()}`,
     buttons: [
       { text: 'Cancel', role: 'cancel' },
       { text: 'Delete', role: 'destructive', handler: () => void doDelete() },
@@ -182,6 +190,9 @@ async function refresh(ev: RefresherCustomEvent): Promise<void> {
             </ion-button>
             <p class="m-0 text-xs pl-muted">The location can't be changed. To move it, delete your display and add it again.</p>
           </div>
+          <p v-else-if="canReAdd(myPin.pin) && myPin.createsLeft === 0" class="m-0 text-sm pl-muted" data-testid="create-cap-note">
+            You've added the most displays allowed this season ({{ CREATES_PER_SEASON }}).
+          </p>
           <ion-button v-else-if="canReAdd(myPin.pin)" expand="block" class="tap m-0" router-link="/submit">
             <ion-icon slot="start" :icon="addOutline" aria-hidden="true" />
             Add a new display
