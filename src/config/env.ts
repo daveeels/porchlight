@@ -30,12 +30,18 @@ if (import.meta.env.PROD) {
   }
 }
 
+const useEmulators = import.meta.env.DEV && optional('VITE_USE_EMULATORS', 'true') === 'true'
+
 export const env = {
-  useEmulators: import.meta.env.DEV && optional('VITE_USE_EMULATORS', 'true') === 'true',
+  useEmulators,
   firebase: {
     apiKey: optional('VITE_FIREBASE_API_KEY', 'demo-api-key'),
     authDomain: optional('VITE_FIREBASE_AUTH_DOMAIN', 'demo-porchlight.firebaseapp.com'),
-    projectId: optional('VITE_FIREBASE_PROJECT_ID', 'demo-porchlight'),
+    // The emulators run as the offline `demo-porchlight` project, so dev with
+    // emulators always uses it — nobody should edit .env.local for local
+    // testing (that file also feeds production builds; on 2026-10-04 it was
+    // edited to demo-porchlight and the live beta shipped pointing at it).
+    projectId: useEmulators ? 'demo-porchlight' : optional('VITE_FIREBASE_PROJECT_ID', 'demo-porchlight'),
     storageBucket: optional('VITE_FIREBASE_STORAGE_BUCKET', 'demo-porchlight.appspot.com'),
     appId: optional('VITE_FIREBASE_APP_ID', 'demo-app-id'),
   },

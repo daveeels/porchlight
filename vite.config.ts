@@ -72,8 +72,28 @@ function noindex(): Plugin {
   }
 }
 
+// Production builds must point at the real project. .env.local also serves
+// local testing, and on 2026-10-04 it was edited to demo-porchlight, so the
+// live beta shipped talking to the offline emulator project (App Check 403,
+// nothing loaded). Refuse to build that.
+const PROD_PROJECT_ID = 'porchlight-nz'
+function requireProdProject(): Plugin {
+  return {
+    name: 'porchlight-require-prod-project',
+    apply: 'build',
+    configResolved(config) {
+      const id = config.env.VITE_FIREBASE_PROJECT_ID
+      if (id !== PROD_PROJECT_ID) {
+        throw new Error(
+          `VITE_FIREBASE_PROJECT_ID is "${id ?? ''}" but production builds must use "${PROD_PROJECT_ID}". Fix .env.local (emulators use demo-porchlight automatically).`,
+        )
+      }
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [vue(), tailwindcss(), VitePWA(pwa), noindex()],
+  plugins: [requireProdProject(), vue(), tailwindcss(), VitePWA(pwa), noindex()],
   build: {
     rolldownOptions: {
       output: {

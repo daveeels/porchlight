@@ -39,6 +39,11 @@ try {
     const page = await (await browser.newContext({ ...device })).newPage()
     const errors = []
     page.on('pageerror', (e) => errors.push(e.message))
+    // The live beta must talk to the real project, never the emulator one
+    // (2026-10-04: .env.local said demo-porchlight and that shipped).
+    page.on('request', (r) => {
+      if (r.url().includes('demo-porchlight')) errors.push(`request to the demo project: ${r.url().slice(0, 90)}`)
+    })
     await page.goto(URL, { waitUntil: 'load', timeout: 60_000 })
     const header = page.locator('ion-header').getByText('Porchlight', { exact: false }).first()
     const ok = await header.isVisible({ timeout: 20_000 }).catch(() => false)

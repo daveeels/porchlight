@@ -77,6 +77,7 @@ docs/          SPEC.md, RUNBOOK.md
 ## Commands
 
 ```
+npm run offline      # everything local: emulators + demo data + app (vite --mode offline, .env.offline)
 npm run dev          # Vite dev server (connects to emulators when VITE_USE_EMULATORS=true)
 npm run emulators    # local Firebase emulators, project demo-porchlight (needs Java 21)
 npm run build        # vue-tsc type check + Vite build
@@ -86,7 +87,7 @@ npm run test:rules   # security rules tests against the emulators (tests/rules)
 npm --prefix functions run build
 ```
 
-Emulators use the offline `demo-porchlight` project, so no real Firebase project is needed for local work. No git remote: commit only when the user asks.
+Emulators use the offline `demo-porchlight` project, so no real Firebase project is needed for local work. **Never edit `.env.local` for local testing** — it feeds production builds and must keep `porchlight-nz` (the build refuses anything else). Use `npm run offline` / `.env.offline` instead. No git remote: commit only when the user asks.
 
 ## Definition of done for any task
 
