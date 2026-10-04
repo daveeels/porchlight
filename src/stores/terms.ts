@@ -1,11 +1,11 @@
 // Community rules agreement (SPEC §5 users, §6 TERMS_REQUIRED). After sign-in
 // the user's own users/{uid} doc says whether the current rules are agreed.
-// If not, the rules modal (TermsModal.vue, mounted once in App.vue) opens
-// once per session (after the welcome's card 4 when that shows first, see
-// setFirstAskHandler); "Not now" keeps browsing working. Writes that need the
-// rules call ensureAgreed() first, and a TERMS_REQUIRED from the server opens
-// the modal again (onTermsRequired) so the action can be retried.
-// The server is the real check; this store only makes the UI friendlier.
+// If not, the rules modal (TermsModal.vue, mounted once in App.vue) is a gate:
+// it stays open until the member agrees or signs out (after the welcome's
+// card 4 when that shows first, see setFirstAskHandler / release). Writes that
+// need the rules call ensureAgreed() first, and a TERMS_REQUIRED from the
+// server opens the modal again (onTermsRequired) so the action can be retried.
+// The server is the real check; this store only makes the UI follow it.
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef, watch } from 'vue'
 import { TERMS_VERSION } from '@/config/terms'
@@ -14,25 +14,6 @@ import { useAuthStore } from './auth'
 
 export type TermsState = 'unknown' | 'loading' | 'accepted' | 'required' | 'error'
 export type TermsModalMode = 'agree' | 'view'
-
-/** sessionStorage: "Not now" was tapped for this uid, so don't open by itself again this session. */
-export const RULES_NOT_NOW_KEY = 'porchlight.rulesNotNow'
-
-function notNowFor(uid: string): boolean {
-  try {
-    return sessionStorage.getItem(RULES_NOT_NOW_KEY) === uid
-  } catch {
-    return false
-  }
-}
-
-function rememberNotNow(uid: string): void {
-  try {
-    sessionStorage.setItem(RULES_NOT_NOW_KEY, uid)
-  } catch {
-    // Storage blocked: the modal may open again on the next load.
-  }
-}
 
 export const useTermsStore = defineStore('terms', () => {
   const auth = useAuthStore()
@@ -43,6 +24,8 @@ export const useTermsStore = defineStore('terms', () => {
   const mode = ref<TermsModalMode>('agree')
   const saving = ref(false)
   const saveError = ref<string | null>(null)
+  /** The welcome has taken over the after-sign-in ask and will release() it. */
+  const deferred = ref(false)
 
   /** Callers waiting for the modal's outcome (true = agreed). */
   let waiting: ((agreed: boolean) => void)[] = []
@@ -51,7 +34,7 @@ export const useTermsStore = defineStore('terms', () => {
   let generation = 0
   /**
    * The first-run welcome (SPEC F14) can take over the after-sign-in ask: it
-   * shows its own card first, then opens the rules. Returns true if it did.
+   * shows its own card first, then calls release(). Returns true if it did.
    */
   let firstAskHandler: (() => boolean) | null = null
 
@@ -68,8 +51,12 @@ export const useTermsStore = defineStore('terms', () => {
     for (const resolve of list) resolve(agreed)
   }
 
-  /** Reads users/{uid}; never rejects (state 'error' leaves the decision to the server). */
-  function load(): Promise<void> {
+  /**
+   * Reads users/{uid}; never rejects (state 'error' leaves the decision to the
+   * server). firstAsk: the read right after sign-in, where the welcome may
+   * take over the ask before the gate opens.
+   */
+  function load(firstAsk = false): Promise<void> {
     const uid = auth.uid
     if (!uid) return Promise.resolve()
     if (loading) return loading
@@ -82,8 +69,10 @@ export const useTermsStore = defineStore('terms', () => {
           state.value = 'accepted'
           acceptedAt.value = rec.acceptedAt
         } else {
-          state.value = 'required'
+          if (firstAsk && !isOpen.value && firstAskHandler?.()) deferred.value = true
           acceptedAt.value = null
+          state.value = 'required'
+          gate()
         }
       })
       .catch(() => {
@@ -102,9 +91,21 @@ export const useTermsStore = defineStore('terms', () => {
     isOpen.value = true
   }
 
+  /** Signed in with the rules not agreed: the agree form is open unless the welcome holds it. */
+  function gate(): void {
+    if (needsAgreement.value && !deferred.value && !(isOpen.value && mode.value === 'agree')) open('agree')
+  }
+
+  /** The welcome is done with the ask (closed, or its cards can't show): open the gate now. */
+  function release(): void {
+    deferred.value = false
+    gate()
+  }
+
   /** Opens the modal to agree; resolves true once agreed, false on "Not now". */
   function requireAgreement(): Promise<boolean> {
     if (!auth.isSignedIn) return Promise.resolve(false)
+    deferred.value = false
     return new Promise<boolean>((resolve) => {
       waiting.push(resolve)
       if (!isOpen.value || mode.value !== 'agree') open('agree')
@@ -152,16 +153,21 @@ export const useTermsStore = defineStore('terms', () => {
     }
   }
 
-  /** The modal closed ("Not now", Close, backdrop or Escape). Waiting callers get false. */
+  /**
+   * The modal closed (Close in view mode, or signing out). Waiting callers get
+   * false. A signed-in member who still has to agree gets the form straight back.
+   */
   function dismissed(): void {
-    const wasAgree = isOpen.value && mode.value === 'agree'
     isOpen.value = false
     saveError.value = null
-    if (wasAgree && auth.uid && state.value === 'required') rememberNotNow(auth.uid)
     settle(false)
+    gate()
   }
 
-  // Signed in (or a different user): load, and ask once per session if needed.
+  // Backstop: whatever closed the form, it comes back while agreement is needed.
+  watch([needsAgreement, isOpen, deferred], gate)
+
+  // Signed in (or a different user): load; the gate opens if the rules aren't agreed.
   watch(
     () => auth.uid,
     (uid) => {
@@ -170,15 +176,10 @@ export const useTermsStore = defineStore('terms', () => {
       state.value = 'unknown'
       acceptedAt.value = null
       saveError.value = null
+      deferred.value = false
       if (isOpen.value) isOpen.value = false
       settle(false)
-      if (!uid) return
-      const gen = generation
-      void load().then(() => {
-        if (gen !== generation || state.value !== 'required' || notNowFor(uid) || isOpen.value) return
-        if (firstAskHandler?.()) return
-        open('agree')
-      })
+      if (uid) void load(true)
     },
     { immediate: true },
   )
@@ -190,6 +191,7 @@ export const useTermsStore = defineStore('terms', () => {
     needsAgreement,
     isOpen,
     mode,
+    deferred,
     saving,
     saveError,
     load,
@@ -199,6 +201,7 @@ export const useTermsStore = defineStore('terms', () => {
     showRules,
     agree,
     dismissed,
+    release,
     setFirstAskHandler,
   }
 })

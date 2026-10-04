@@ -22,7 +22,7 @@ vi.mock('@/services/terms', () => ({
 
 import { TERMS_VERSION } from '@/config/terms'
 import { acceptTerms, fetchTermsRecord } from '@/services/terms'
-import { RULES_NOT_NOW_KEY, useTermsStore } from '@/stores/terms'
+import { useTermsStore } from '@/stores/terms'
 
 const mockFetch = vi.mocked(fetchTermsRecord)
 const mockAccept = vi.mocked(acceptTerms)
@@ -73,22 +73,39 @@ describe('useTermsStore', () => {
     expect(terms.isOpen).toBe(true)
   })
 
-  it('"Not now" closes it and is remembered for the session', async () => {
+  it('is a gate: closing it without agreeing opens it straight back', async () => {
     const terms = await signIn()
     terms.dismissed()
-    expect(terms.isOpen).toBe(false)
-    expect(sessionStorage.getItem(RULES_NOT_NOW_KEY)).toBe('user1')
+    expect(terms.isOpen).toBe(true)
+    expect(terms.mode).toBe('agree')
+    terms.isOpen = false
+    await settle()
+    expect(terms.isOpen).toBe(true)
+  })
 
+  it('asks again on every page load until agreed', async () => {
+    await signIn()
     setActivePinia(createPinia())
     authState.uid.value = null
     const again = await signIn()
     expect(again.state).toBe('required')
-    expect(again.isOpen).toBe(false)
+    expect(again.isOpen).toBe(true)
+  })
+
+  it('a deferred ask (welcome cards first) opens on release()', async () => {
+    const terms = useTermsStore()
+    terms.setFirstAskHandler(() => true)
+    const store = await signIn()
+    expect(store.state).toBe('required')
+    expect(store.deferred).toBe(true)
+    expect(store.isOpen).toBe(false)
+    store.release()
+    expect(store.isOpen).toBe(true)
+    expect(store.deferred).toBe(false)
   })
 
   it('agree() calls acceptTerms and resolves a waiting write', async () => {
     const terms = await signIn()
-    terms.dismissed()
     const waiting = terms.ensureAgreed()
     await settle()
     expect(terms.isOpen).toBe(true)
@@ -100,11 +117,13 @@ describe('useTermsStore', () => {
     await expect(terms.ensureAgreed()).resolves.toBe(true)
   })
 
-  it('a waiting write gets false on "Not now"', async () => {
+  it('a waiting write gets false when the member signs out instead', async () => {
     const terms = await signIn()
     const waiting = terms.requireAgreement()
-    terms.dismissed()
+    authState.uid.value = null
+    await settle()
     await expect(waiting).resolves.toBe(false)
+    expect(terms.isOpen).toBe(false)
   })
 
   it('keeps the form open with a message when saving fails', async () => {

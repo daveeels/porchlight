@@ -1,15 +1,13 @@
 // Community rules (SPEC §5 users, §6 TERMS_REQUIRED) against the emulators:
 // the first sign-in shows the rules; "I agree" needs the box ticked; once
 // agreed they don't show again after a reload, and "Community rules" in the
-// account menu reopens them read-only. "Not now" keeps browsing working, and
-// voting asks again, then goes ahead once agreed. A fresh account per
-// attempt, so a retry still sees a first sign-in.
-import { expect, test, type TestInfo } from '@playwright/test'
-import { initializeApp, getApps, type App } from 'firebase-admin/app'
-import { getFirestore } from 'firebase-admin/firestore'
+// account menu reopens them read-only. They're a must for members: no Close,
+// no Escape, only "I agree" or "Sign out", and they ask again on every load
+// until agreed. A fresh account per attempt, so a retry still sees a first
+// sign-in.
+import { expect, test } from '@playwright/test'
 import { FIRST_LOAD, snap } from './helpers'
 import {
-  addTesters,
   hasAgreedToRules,
   rulesAgreeButton,
   rulesModal,
@@ -17,41 +15,6 @@ import {
   signInDirect,
   testerEmail,
 } from './phase2'
-
-const EVENT_ID = 'HALLOWEEN_2026'
-/** Rotorua seed pin (outside the Tauranga area the other specs count), copied as a vote target. */
-const SOURCE_PIN = `seedUser00000000000049_${EVENT_ID}`
-
-function adminApp(): App {
-  if (!process.env.FIRESTORE_EMULATOR_HOST) process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080'
-  return getApps()[0] ?? initializeApp({ projectId: 'demo-porchlight' })
-}
-
-/** An ACTIVE pin per project with 2 "It's here" votes and none from anyone else, rewritten each run. */
-async function writeVoteTarget(testInfo: TestInfo): Promise<string> {
-  const tag = testInfo.project.name === 'iphone' ? 'Iphone' : 'Pixel0'
-  const pinId = `e2eRulesTarget${tag}_${EVENT_ID}`
-  const db = getFirestore(adminApp())
-  const source = await db.doc(`pins/${SOURCE_PIN}`).get()
-  const ref = db.doc(`pins/${pinId}`)
-  await db.recursiveDelete(ref)
-  await ref.set({
-    ...source.data(),
-    ownerId: pinId.slice(0, pinId.indexOf('_')),
-    title: `E2E Rules Target ${testInfo.project.name}`,
-    status: 'ACTIVE',
-    hiddenReason: null,
-    removedBy: null,
-    voteRound: 0,
-    hereVotes: 2,
-    notThereVotes: 0,
-    verified: false,
-    reportsCount: 0,
-    rankScore: 2,
-    moderation: { decision: 'NONE', reviewedBy: null, reviewedAt: null, note: null },
-  })
-  return pinId
-}
 
 test('first sign-in asks to agree to the community rules; it sticks, and the menu reopens them read-only', async ({
   page,
@@ -98,35 +61,36 @@ test('first sign-in asks to agree to the community rules; it sticks, and the men
   await expect(rulesModalHost(page)).toHaveCount(0, FIRST_LOAD)
 })
 
-test('"Not now" keeps browsing; voting asks again and goes ahead once agreed', async ({ page }, testInfo) => {
-  const pinId = await writeVoteTarget(testInfo)
-  const email = testerEmail(testInfo, `rulesvote${testInfo.retry}`)
-  await addTesters(email)
+test('the rules are a must: no way past them but "I agree" or "Sign out", and they ask again next time', async ({
+  page,
+}, testInfo) => {
+  const email = testerEmail(testInfo, `rulesgate${testInfo.retry}`)
   await signInDirect(page, email, { rules: 'leave' })
 
+  const modal = rulesModal(page)
+  await expect(modal).toBeVisible(FIRST_LOAD)
+  await expect(modal).toHaveAttribute('data-mode', 'agree')
+  // No Close / Not now, and Escape doesn't close it.
+  await expect(page.getByTestId('terms-close')).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(600)
+  await expect(modal).toBeVisible()
+  await snap(page, testInfo, 'rules-gate')
+
+  // A reload asks again.
+  await page.goto('/')
   await expect(rulesModal(page)).toBeVisible(FIRST_LOAD)
-  await expect(page.getByTestId('terms-close')).toHaveText('Not now')
-  await page.getByTestId('terms-close').click()
-  await expect(rulesModalHost(page)).toHaveCount(0, FIRST_LOAD)
   expect(await hasAgreedToRules(email)).toBe(false)
 
-  // Browsing still works, and "Not now" holds for this session (no modal on load).
-  await page.goto(`/?pin=${pinId}`)
-  const sheet = page.locator('ion-modal:not(.terms-modal)')
-  await expect(sheet.getByRole('link', { name: 'Open in Maps' })).toBeVisible(FIRST_LOAD)
-  await expect(rulesModalHost(page)).toHaveCount(0)
-  await sheet.evaluate((m) => (m as HTMLElement & { setCurrentBreakpoint(b: number): Promise<void> }).setCurrentBreakpoint(0.95))
-  await page.waitForTimeout(400)
+  // Sign out: the gate goes, browsing carries on signed out.
+  await page.getByTestId('terms-sign-out').click()
+  await expect(rulesModalHost(page)).toHaveCount(0, FIRST_LOAD)
+  await expect(page.locator('ion-header').getByRole('button', { name: 'Account' })).toHaveCount(0, FIRST_LOAD)
+  await expect(page.getByTestId('results')).toBeVisible(FIRST_LOAD)
+  expect(await hasAgreedToRules(email)).toBe(false)
 
-  // Voting needs the rules: the modal opens, and the vote is sent once agreed.
-  await page.getByTestId('vote-here').click()
+  // Signing back in asks again.
+  await signInDirect(page, email, { rules: 'leave' })
   await expect(rulesModal(page)).toBeVisible(FIRST_LOAD)
   await expect(rulesModal(page)).toHaveAttribute('data-mode', 'agree')
-  await snap(page, testInfo, 'rules-before-vote')
-  await page.getByTestId('terms-checkbox').click()
-  await rulesAgreeButton(page).click()
-  await expect(rulesModalHost(page)).toHaveCount(0, FIRST_LOAD)
-  await expect(page.getByTestId('vote-here')).toHaveAttribute('data-selected', 'true', FIRST_LOAD)
-  await expect(sheet.getByTestId('pin-counts')).toContainText("3 people say it's here", FIRST_LOAD)
-  expect(await hasAgreedToRules(email)).toBe(true)
 })

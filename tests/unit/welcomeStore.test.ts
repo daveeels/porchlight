@@ -292,6 +292,16 @@ describe('useWelcomeStore', () => {
       expect(terms.isOpen).toBe(true)
     })
 
+    it("a held ask opens the rules when the cards can't show", async () => {
+      const { terms, welcome } = stores()
+      welcome.setLanding(true)
+      await signIn()
+      expect(terms.isOpen).toBe(false)
+      welcome.releaseHeldRules()
+      expect(terms.isOpen).toBe(true)
+      expect(terms.mode).toBe('agree')
+    })
+
     it('a held ask is dropped on sign-out', async () => {
       const { terms, welcome } = stores()
       welcome.setLanding(true)
@@ -317,13 +327,10 @@ describe('useWelcomeStore', () => {
       expect(welcome.buttonLabel).toBe('Done')
     })
 
-    it("signed in: cards 1–4 ending in Done, and it doesn't open the rules", async () => {
+    it("signed in: cards 1–4 ending in Done, and it doesn't open the rules once agreed", async () => {
+      mockFetch.mockResolvedValue({ version: TERMS_VERSION, acceptedAt: new Date() })
       const { terms, welcome } = stores()
       await signIn()
-      // "Not now" on the rules (card 4 seen already).
-      welcome.finish()
-      welcome.closed()
-      terms.dismissed()
       expect(terms.isOpen).toBe(false)
 
       welcome.reopen()
@@ -336,11 +343,10 @@ describe('useWelcomeStore', () => {
       expect(terms.isOpen).toBe(false)
     })
 
-    it('Skip on a reopen never opens the rules either', async () => {
-      markSeen(WELCOME_MEMBER_SEEN_KEY)
+    it('Skip on a reopen never opens the rules either once agreed', async () => {
+      mockFetch.mockResolvedValue({ version: TERMS_VERSION, acceptedAt: new Date() })
       const { terms, welcome } = stores()
       await signIn()
-      terms.dismissed()
       welcome.reopen()
       welcome.finish()
       welcome.closed()

@@ -75,6 +75,16 @@ onBeforeUnmount(() => {
   if (offerTimer) clearTimeout(offerTimer)
 })
 
+// A sign-in's rules ask waits for these cards; if they can't show soon, the
+// rules (a must for members) open now instead.
+watch(
+  () => route.name !== 'explore' || season.offSeason || !!appConfig.error,
+  (blocked) => {
+    if (blocked) welcome.releaseHeldRules()
+  },
+  { immediate: true },
+)
+
 // ---- Modal lifecycle (as TermsModal: only in the DOM while open) -----------
 
 const present = ref(welcome.isOpen)

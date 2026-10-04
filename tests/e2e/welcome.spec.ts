@@ -6,7 +6,7 @@
 // reopen the cards without opening the rules.
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { FIRST_LOAD, cards, openExplore, snap } from './helpers'
-import { rulesModal, rulesModalHost, signInDirect, testerEmail } from './phase2'
+import { rulesAgreeButton, rulesModal, rulesModalHost, signInDirect, testerEmail } from './phase2'
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
@@ -192,12 +192,13 @@ test('"How Porchlight works" in the account menu reopens the cards and never ope
   const email = testerEmail(testInfo, `welcomemenu${testInfo.retry}`)
   await signInDirect(page, email, { rules: 'leave' })
 
-  // First sign-in: card 4; Skip goes to the rules too; "Not now" there.
+  // First sign-in: card 4; Skip goes to the rules too; agree there.
   await expect(welcome(page)).toBeVisible(FIRST_LOAD)
   await expectCard(page, 'add', 'Add your own display')
   await page.getByTestId('welcome-skip').click()
   await expect(rulesModal(page)).toBeVisible(FIRST_LOAD)
-  await page.getByTestId('terms-close').click()
+  await page.getByTestId('terms-checkbox').click()
+  await rulesAgreeButton(page).click()
   await expect(rulesModalHost(page)).toHaveCount(0, FIRST_LOAD)
 
   await page.locator('ion-header').getByRole('button', { name: 'Account' }).click()

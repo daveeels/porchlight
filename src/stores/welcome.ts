@@ -81,8 +81,6 @@ export const useWelcomeStore = defineStore('welcome', () => {
   let heldRules = false
   /** …and card 4 joins that run (this device hasn't seen it). */
   let memberPending = false
-  /** Rules to open after the welcome's dismiss animation (see closed()). */
-  let openRulesOnClosed = false
 
   const step = computed<WelcomeStep | null>(() => steps.value[index.value] ?? null)
   const isLast = computed(() => index.value >= steps.value.length - 1)
@@ -100,7 +98,6 @@ export const useWelcomeStore = defineStore('welcome', () => {
     steps.value = nextSteps
     index.value = 0
     rulesAfter.value = withRules
-    openRulesOnClosed = false
     isOpen.value = true
   }
 
@@ -113,7 +110,7 @@ export const useWelcomeStore = defineStore('welcome', () => {
     if (isOpen.value || !firstVisitPending()) return false
     firstOffered = true
     const withMember = memberPending && auth.isSignedIn
-    const withRules = heldRules && auth.isSignedIn
+    const withRules = heldRules && terms.needsAgreement
     memberPending = false
     heldRules = false
     start('first', stepsFor('first', { signedIn: auth.isSignedIn, withMember }), withRules)
@@ -163,17 +160,25 @@ export const useWelcomeStore = defineStore('welcome', () => {
     if (!isOpen.value) return
     if (run.value !== 'member') markSeen(WELCOME_SEEN_KEY)
     if (steps.value.includes(MEMBER_STEP)) markSeen(WELCOME_MEMBER_SEEN_KEY)
-    openRulesOnClosed = rulesAfter.value
     rulesAfter.value = false
     isOpen.value = false
   }
 
-  /** The modal finished closing: open the rules if they were waiting. */
+  /** The modal finished closing: hand the rules back (they open now if still needed). */
   function closed(): void {
     if (isOpen.value) finish()
-    if (!openRulesOnClosed) return
-    openRulesOnClosed = false
-    if (auth.isSignedIn && terms.state === 'required' && !terms.isOpen) void terms.requireAgreement()
+    if (!heldRules) terms.release()
+  }
+
+  /**
+   * The first-visit cards won't show soon (left Explore, off-season, config
+   * error): don't keep the rules waiting for them.
+   */
+  function releaseHeldRules(): void {
+    if (!heldRules) return
+    heldRules = false
+    memberPending = false
+    terms.release()
   }
 
   // Signed out (or another user): a held ask belonged to the old account.
@@ -201,6 +206,7 @@ export const useWelcomeStore = defineStore('welcome', () => {
     offerFirstVisit,
     reopen,
     onFirstAsk,
+    releaseHeldRules,
     next,
     back,
     finish,

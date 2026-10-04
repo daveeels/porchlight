@@ -1,8 +1,10 @@
 <script setup lang="ts">
 // The community rules (SPEC §5 users, §6 TERMS_REQUIRED), mounted once in
-// App.vue and driven by useTermsStore. "agree" mode: a required checkbox and
-// "I agree" (→ acceptTerms) or "Not now". "view" mode: the same rules, read
-// only, with the date the user agreed. A full-screen modal on phones (not a
+// App.vue and driven by useTermsStore. "agree" mode is a gate for signed-in
+// members: a required checkbox and "I agree" (→ acceptTerms), or "Sign out";
+// it can't be dismissed (no Escape, backdrop or Close), and the full terms
+// open in a new tab so it stays up. "view" mode: the same rules, read only,
+// with the date the user agreed. A full-screen modal on phones (not a
 // bottom sheet), a centred card on wider screens.
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -18,6 +20,7 @@ import {
   IonTitle,
   IonToolbar,
 } from '@ionic/vue'
+import { useAccountMenu } from '@/components/common/accountMenu'
 import { COMMUNITY_RULES, FULL_TERMS_PATH, RULES_CHECKBOX_LABEL, RULES_TITLE } from '@/config/terms'
 import { useAuthStore } from '@/stores/auth'
 import { useTermsStore } from '@/stores/terms'
@@ -26,6 +29,8 @@ const terms = useTermsStore()
 const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
+const menu = useAccountMenu()
+const signingOut = ref(false)
 
 const ticked = ref(false)
 const agreeMode = computed(() => terms.mode === 'agree')
@@ -61,6 +66,21 @@ const agreedOn = computed(() => {
   return at.toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })
 })
 
+/** Ionic asks before any dismissal: never while the agree form must stay up. */
+function canDismiss(): Promise<boolean> {
+  return Promise.resolve(!(terms.isOpen && terms.mode === 'agree'))
+}
+
+async function signOut(): Promise<void> {
+  if (signingOut.value) return
+  signingOut.value = true
+  try {
+    await menu.signOut()
+  } finally {
+    signingOut.value = false
+  }
+}
+
 async function agree(): Promise<void> {
   if (!ticked.value) return
   await terms.agree()
@@ -71,6 +91,10 @@ function close(): void {
 }
 
 function fullTerms(): void {
+  if (agreeMode.value) {
+    window.open(FULL_TERMS_PATH, '_blank', 'noopener')
+    return
+  }
   terms.dismissed()
   const [path, hash] = FULL_TERMS_PATH.split('#')
   if (route.path === path && hash) {
@@ -86,14 +110,16 @@ function fullTerms(): void {
     v-if="present"
     :is-open="terms.isOpen"
     class="terms-modal"
+    :can-dismiss="canDismiss"
+    :backdrop-dismiss="!agreeMode"
     aria-labelledby="rules-title"
     @did-dismiss="onDidDismiss"
   >
     <ion-header>
       <ion-toolbar>
         <ion-title>Community rules</ion-title>
-        <ion-buttons slot="end">
-          <ion-button class="tap" color="primary" data-testid="terms-close" @click="close">{{ agreeMode ? 'Not now' : 'Close' }}</ion-button>
+        <ion-buttons v-if="!agreeMode" slot="end">
+          <ion-button class="tap" color="primary" data-testid="terms-close" @click="close">Close</ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
@@ -111,7 +137,17 @@ function fullTerms(): void {
           </li>
         </ol>
 
-        <a :href="FULL_TERMS_PATH" class="pl-link self-start py-3" @click.prevent="fullTerms">Full terms and privacy policy</a>
+        <a
+          :href="FULL_TERMS_PATH"
+          :target="agreeMode ? '_blank' : undefined"
+          :rel="agreeMode ? 'noopener' : undefined"
+          class="pl-link self-start py-3"
+          @click.prevent="fullTerms"
+          >Full terms and privacy policy</a
+        >
+        <p v-if="agreeMode" class="m-0 text-sm pl-muted">
+          You need to agree to use Porchlight as a member. Not for you? Sign out and keep browsing.
+        </p>
       </div>
     </ion-content>
 
@@ -138,6 +174,16 @@ function fullTerms(): void {
           >
             <ion-spinner v-if="terms.saving" slot="start" name="crescent" />
             I agree
+          </ion-button>
+          <ion-button
+            expand="block"
+            fill="clear"
+            class="tap m-0"
+            :disabled="terms.saving || signingOut"
+            data-testid="terms-sign-out"
+            @click="signOut"
+          >
+            Sign out
           </ion-button>
         </template>
         <template v-else>
