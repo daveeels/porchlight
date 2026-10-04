@@ -3,7 +3,7 @@
 > **Porchlight** (working name) — *"Find the houses worth the drive."* Find and share decorated houses for Halloween and Christmas.
 > Launch area: **Tauranga & Western Bay of Plenty, New Zealand** (Tauranga, Mount Maunganui, Pāpāmoa, Te Puke, The Lakes, Bethlehem, Welcome Bay, Ōmokoroa…).
 > This is the source of truth for **what** to build. `CLAUDE.md` holds the **how** (rules and conventions).
-> Last revised: 2026-10-02. **Launch target: Halloween 2026 — live by Sat Oct 17.**
+> Last revised: 2026-10-05. **Launch target: Halloween 2026 — live by Sat Oct 17.**
 
 ---
 
@@ -30,7 +30,7 @@ People search for an area or suburb (or tap "Near me") and see decorated houses 
 2. **Contributing takes effort.** Account, required photo, one pin per account per season, votes only count from real accounts, daily limits. Spamming should require many real accounts and time.
 3. **The community decides what's real.** Unverified → Verified by "It's here" votes; "Not there" votes remove a pin from results.
 4. **Every rule is enforced on the server.** Checks in the Vue app only make the UI friendlier.
-5. **Privacy is light-touch and honest.** Photos have all metadata removed. Locations are offset 25–50 m. That makes the exact house harder to pinpoint but does **not** hide it (the photo shows the house). The app says so.
+5. **Privacy is light-touch and honest.** Photos have all metadata removed. Locations are offset 10–15 m. That makes the exact house harder to pinpoint but does **not** hide it (the photo shows the house). The app says so.
 6. **Run on free tiers.** Budget is close to zero. The map is the only real cost risk, so it's behind sign-in and has an off switch.
 
 ---
@@ -186,7 +186,7 @@ Switching season calls `map.setStyle()` on the **existing** map. On `style.load`
 
 **F5. Add my display** (signed in)
 Flow: location → photo → details → preview → submit → success.
-- **Location:** "Use my current location" **or address search**, then drag/tap the pin on a small map to adjust. This picker map is the **only** other map instance allowed; create it when the step opens, remove it when it closes. Show: "Your pin will be shown about 25–50 m from where you place it."
+- **Location:** "Use my current location" **or address search**, then drag/tap the pin on a small map to adjust. This picker map is the **only** other map instance allowed; create it when the step opens, remove it when it closes. Show: "Your pin will be shown about 10–15 m from where you place it."
   - **Address search** (above the map): [Photon](https://photon.komoot.io) by komoot — free, no key. Typing 3+ characters (debounced 400 ms; a newer query aborts the older request) asks `photon.komoot.io/api/?q=…&limit=6&lang=en&bbox=166.0,-47.6,179.0,-34.0` (New Zealand) biased to `config/app.launchCenter` (`lat`/`lon`), and lists up to 6 results as "house number + street, suburb, city". Picking one moves the pin exactly like "Use my current location" (marker + fly to street level) and clears the rough-fix accuracy note; the user can still drag or tap to nudge it. Friendly copy for no results, offline and errors (all point back to "Use my current location" / dragging). Small attribution under the box: "Address search: Photon / © OpenStreetMap contributors". The URL lives in `src/config/env.ts` (`VITE_ADDRESS_SEARCH_URL`); `src/services/addressSearch.ts` is the only code that calls it.
   - **This is client-side positioning, not storing geocoded places.** What the user types goes to Photon and nowhere else (no logging, no storage, sent without cookies or referrer); only the point the user ends up choosing continues into `createPin`, which offsets it as always. Pin places still come from GeoNames (§5), so "no geocoding API for storing places" still holds. The privacy policy names Photon (§10).
   - Small phones: the step scrolls with the search box and map; "Next: photo" stays pinned at the bottom (sticky bar), and the map keeps its height clamp (`clamp(190px, 34vh, 340px)`).
@@ -225,13 +225,13 @@ Flow: location → photo → details → preview → submit → success.
 - A short list titled **"Before you post or vote"** (exact text in `src/config/terms.ts`):
   1. Only share real decorated displays: your own house, or one you have the owner's OK to share.
   2. Keep photos free of house numbers, number plates and people's faces.
-  3. Pins are shown about 25–50 m away, but your photo may still show which house it is.
+  3. Pins are shown about 10–15 m away, but your photo may still show which house it is.
   4. Vote honestly. Reports are for problems, not grudges. We can remove displays or accounts that break these rules.
   5. When visiting, respect people's homes: stay on the footpath, keep noise down, and follow the road rules.
   6. Porchlight is free, run by a local, and provided as-is.
 
   Plus a link "Full terms and privacy policy" → `/about#terms`.
-- **Versioned:** `TERMS_VERSION` (`'2026-10-02'`) lives in `src/config/terms.ts` and `functions/src/lib/terms.ts`, kept equal by a unit test. Changing the rules = bump both; everyone is asked again.
+- **Versioned:** `TERMS_VERSION` (`'2026-10-05'`) lives in `src/config/terms.ts` and `functions/src/lib/terms.ts`, kept equal by a unit test. Changing the rules = bump both; everyone is asked again.
 - **When it shows:** a modal (`IonModal`, full screen on phones — not a bottom sheet) right after sign-in when `users/{uid}.termsVersion` is missing or old (the client reads its own users doc). It's a **must for members**: it can't be closed (no Close, Escape or backdrop) and comes back on every load until agreed. A required checkbox "I've read and agree to the community rules" enables **I agree** → `acceptTerms` → close. The only other way out is **Sign out** (browsing carries on signed out). "Full terms and privacy policy" opens in a new tab so the form stays up. If the server answers `TERMS_REQUIRED` (e.g. the rules changed mid-session) the form opens again and the action goes ahead once agreed. If the users doc can't be read, the client doesn't block and the server decides.
 - **Easy to find again:** "Community rules" in the account menu opens the same modal read-only ("You agreed on <date>"); the About page has a Community rules section.
 - **Server:** `acceptTerms` writes `termsVersion` + `termsAcceptedAt`; `createPin`, `updatePin`, `castVote` and `reportPin` reject with `TERMS_REQUIRED` until the current version is agreed (§6). `deletePin` and `moderatePin` don't need it.
@@ -241,7 +241,7 @@ Flow: location → photo → details → preview → submit → success.
   1. **Find the houses worth the drive** — "Porchlight shows the best Halloween displays around Tauranga, shared by the people who made them." (glowing porch)
   2. **Search your suburb, or tap Near me** — "Glowing houses are verified: neighbours have checked they're really there." (dark map with glowing pins, "✓ 15" sticker)
   3. **Seen one? Tell everyone** — "Tap "It's here" after you visit. Three votes and a display gets the ✓ Verified sticker." (vote buttons) — button **Let's go**
-  4. **Add your own display** — "Snap a photo and drop a pin. We show it 25–50 m away, so your exact address stays a little private." (phone camera + pin, "NEW" sticker) — button **Next: community rules**
+  4. **Add your own display** — "Snap a photo and drop a pin. We show it 10–15 m away, so your exact address stays a little private." (phone camera + pin, "NEW" sticker) — button **Next: community rules**
 - **Visitors (cards 1–3):** once per device, for everyone (signed in or not), on Explore once it has loaded (results settled, no pin sheet or rules modal open, not off-season). Only when the page load **started on Explore** (`/`, `/a/`, `/t/`, `/p/`): a visit that starts on a deep link to `/sign-in`, `/auth/complete`, `/submit`, `/me` or `/about` doesn't get them that visit (nor after moving on to Explore), and isn't marked seen. Skip or **Let's go** sets `localStorage['porchlight.welcome.v1'] = 'seen'`.
 - **First sign-in (card 4 alone, one dot):** when a signed-in user's community rules (F13) aren't agreed and this device hasn't seen card 4, the welcome takes over the rules modal's after-sign-in ask: card 4 shows first, and its button **or Skip** closes it and then opens the rules (agree mode, which can't be skipped). Sets `localStorage['porchlight.welcome.member.v1'] = 'seen'`. Never shown once the rules are agreed. If a first sign-in lands while cards 1–3 are still to come or open, card 4 joins them (1–4, then the rules), so the two modals never stack. If those cards can't show soon (the member leaves Explore, it's off-season, or config fails to load), the rules open straight away.
 - **Reopen:** "How Porchlight works" in the account menu and "Show me the quick tour" on About show cards 1–3 (plus 4 when signed in), ending with **Done**. Reopening never opens the rules by itself.
@@ -278,7 +278,7 @@ Flow: location → photo → details → preview → submit → success.
 - "Add to tour" on any pin; **"Make me a tour"** picks the best 6–8 verified pins within ~5 km of the user.
 - Stops ordered on the device (nearest-neighbour + 2-opt on straight-line distance), 🚗 drive / 🚶 walk toggle, numbered stops joined by straight lines on our map, estimated distance and time.
 - **"Start tour in Google Maps"**: a Maps URL with the ordered stops as waypoints (no API key). ~9 stops per link → split longer tours into parts. Apple Maps handles multi-stop poorly → stop-by-stop fallback.
-- Stops are the offset (25–50 m) locations; the photo identifies the house.
+- Stops are the offset (10–15 m) locations; the photo identifies the house.
 - Later: road-following lines (e.g. OpenRouteService free tier), saved and shareable tours.
 
 ### Out of scope (don't build unless asked)
@@ -546,7 +546,7 @@ rateLimits:            no client access
 `comingSoon: true` → `stage: 'COMING_SOON'` and `uploadId` may be left out (no photo step; photo fields null). Otherwise `uploadId` is required and `stage: 'READY'`.
 1. Require auth. Validate input. Call `getAuth().getUser(uid)` (for lazy user creation). Beta gate. Then run the step 5 checks **read-only** (no transaction, nothing written), so a call that would fail anyway (rate limit, existing pin, closed event, cap) never runs `sharp`. Step 3's offset and coverage check also run before the photo.
 2. **Photo, outside any transaction:** read `uploads/{uid}/{uploadId}`. `sharp(buf, { limitInputPixels: 50e6 })`; reject unless `metadata().format` is jpeg, png or webp. Re-encode (sharp drops all metadata) to `full.webp` (1600 px) and `thumb.webp` (400 px) at `photos/{pinId}/{uploadId}/`. Get download URLs from `firebase-admin/storage`. **This is the real EXIF strip.**
-3. **Offset location:** random bearing 0–360°, random distance 25–50 m, converted with the `cos(latitude)` correction for longitude. Geohash and **town lookup use the offset point**. **Never store or log the exact coordinates** (don't log the request payload).
+3. **Offset location:** random bearing 0–360°, random distance 10–15 m, converted with the `cos(latitude)` correction for longitude. Geohash and **town lookup use the offset point**. **Never store or log the exact coordinates** (don't log the request payload).
 4. Re-create over a REMOVED pin: `recursiveDelete` its old `votes` and `reports` subcollections and old photos (skip if the pin is blocked by the checks below).
 5. **One transaction.** Read: `users/{uid}` (create lazily), `rateLimits/{uid}`, `events/{eventId}`, `pins/{uid}_{eventId}`. Check:
    - not banned
@@ -701,7 +701,7 @@ Today is **Thu Oct 1, 2026**. The code is built by Claude Code agents, so phases
 - `createPin`, `updatePin`, `deletePin` with validation, rate limits, `sharp`, offset, town lookup, `placeIndex` increment. `enforceAppCheck: true`.
 - SubmitPinPage (location picker map, photo, details, consent) and MyPinPage.
 
-**Done when:** Google sign-in works on desktop Chrome, iOS Safari and Android Chrome · a submitted pin appears in its town's list and on the map as Unverified · stored point is 25–50 m from the chosen point (unit test) · a GPS-tagged photo uploaded directly with the SDK comes out with no EXIF · a second pin for the same event fails with a friendly message · two simultaneous `createPin` calls produce one pin · an admin-removed pin can't be re-created · all tests pass.
+**Done when:** Google sign-in works on desktop Chrome, iOS Safari and Android Chrome · a submitted pin appears in its town's list and on the map as Unverified · stored point is 10–15 m from the chosen point (unit test) · a GPS-tagged photo uploaded directly with the SDK comes out with no EXIF · a second pin for the same event fails with a friendly message · two simultaneous `createPin` calls produce one pin · an admin-removed pin can't be re-created · all tests pass.
 
 ### Phase 3 — Votes, reports, moderation, launch (Oct 14–17)
 - `castVote`, `reportPin` + the buttons in the detail sheet. Verified badge and ranking live.

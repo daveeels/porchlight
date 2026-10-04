@@ -8,8 +8,8 @@ export interface LatLng {
 /** Mean Earth radius (IUGG), in metres. */
 export const EARTH_RADIUS_M = 6_371_008.8
 
-export const OFFSET_MIN_M = 25
-export const OFFSET_MAX_M = 50
+export const OFFSET_MIN_M = 10
+export const OFFSET_MAX_M = 15
 
 const toRad = (deg: number): number => (deg * Math.PI) / 180
 const toDeg = (rad: number): number => (rad * 180) / Math.PI
@@ -24,7 +24,7 @@ export function haversineKm(a: LatLng, b: LatLng): number {
 }
 
 /**
- * Moves a point a random 25–50 m (uniform distance) on a random bearing
+ * Moves a point a random 10–15 m (uniform distance) on a random bearing
  * (0–360°), correcting longitude by cos(latitude). This is the privacy offset:
  * call it once in createPin and never store or log the input point.
  */

@@ -120,10 +120,10 @@ describe('createPin happy path', () => {
     expect(pin.expiresAt.isEqual(event?.expiresAt)).toBe(true)
     expect(pin.purgeAt.isEqual(event?.purgeAt)).toBe(true)
 
-    // Location: offset 25–50 m; geohash (precision 9) and place from the offset point.
+    // Location: offset 10–15 m; geohash (precision 9) and place from the offset point.
     const m = haversineKm(PAPAMOA, { lat: pin.geo.latitude, lng: pin.geo.longitude }) * 1000
-    expect(m).toBeGreaterThanOrEqual(25 - 1e-6)
-    expect(m).toBeLessThanOrEqual(50 + 1e-6)
+    expect(m).toBeGreaterThanOrEqual(10 - 1e-6)
+    expect(m).toBeLessThanOrEqual(15 + 1e-6)
     expect(pin.geohash).toBe(geohashForLocation([pin.geo.latitude, pin.geo.longitude], 9))
     expect(pin.place.areaKey).toBe('tauranga')
     expect(pin.place.area).toBe('Tauranga & surrounds')

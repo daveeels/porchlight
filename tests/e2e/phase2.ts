@@ -135,7 +135,7 @@ export async function signInDirect(page: Page, email: string, opts: SignInOption
 export async function addDisplay(page: Page, title: string, photoPath: string): Promise<void> {
   // Location: mocked geolocation (test.use({ geolocation, permissions })).
   await expect(page.getByRole('heading', { name: 'Where is your display?' })).toBeVisible(FIRST_LOAD)
-  await expect(page.getByText('Your pin will be shown about 25–50 m from where you place it.', { exact: false })).toBeVisible()
+  await expect(page.getByText('Your pin will be shown about 10–15 m from where you place it.', { exact: false })).toBeVisible()
   await page.locator('ion-button', { hasText: 'Use my current location' }).click()
   await expect(page.getByTestId('location-set')).toBeVisible()
   await page.locator('ion-button', { hasText: 'Next: photo' }).click()

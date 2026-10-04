@@ -1,7 +1,7 @@
 // First-run welcome (SPEC F14): four storybook cards. Cards 1–3 are for every
 // visitor; card 4 follows a first sign-in and leads into the community rules.
 // The season label ("Halloween" / "Christmas") comes from SEASON_THEMES.
-// A non-breaking space keeps "25–50 m" on one line.
+// A non-breaking space keeps "10–15 m" on one line.
 
 export type WelcomeStep = 'find' | 'search' | 'vote' | 'add'
 
@@ -40,7 +40,7 @@ export function welcomeCard(step: WelcomeStep, seasonLabel: string): WelcomeCard
       return {
         step,
         title: 'Add your own display',
-        text: 'Snap a photo and drop a pin. We show it 25–50\u00a0m away, so your exact address stays a little private.',
+        text: 'Snap a photo and drop a pin. We show it 10–15\u00a0m away, so your exact address stays a little private.',
       }
   }
 }

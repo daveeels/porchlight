@@ -3,4 +3,4 @@
 // they match). Bump both when the rules change: everyone is asked to agree
 // again before their next post, edit, vote or report.
 // No imports, so the client unit test can import this file directly.
-export const TERMS_VERSION = '2026-10-02'
+export const TERMS_VERSION = '2026-10-05'

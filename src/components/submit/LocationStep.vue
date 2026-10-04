@@ -92,7 +92,7 @@ const roughFix = computed(() => {
     </div>
 
     <p class="m-0 text-sm pl-muted">
-      Your pin will be shown about 25–50 m from where you place it. That makes the exact house a bit harder to find,
+      Your pin will be shown about 10–15 m from where you place it. That makes the exact house a bit harder to find,
       but your photo still shows it.
     </p>
     <p v-if="chosen" class="m-0 text-sm font-medium" role="status" data-testid="location-set">Location set ✓</p>

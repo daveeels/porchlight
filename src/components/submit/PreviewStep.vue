@@ -65,11 +65,11 @@ const progressLabel = computed(() => {
       <template v-if="editing">Location can't be changed. To move it, delete your display and add it again.</template>
       <template v-else-if="comingSoon">
         It goes live straight away as Coming soon, listed after the displays that are up. When your decorations are
-        up, tap “My lights are up!” on My display and add a photo to open voting. The location is shown about 25–50 m
+        up, tap “My lights are up!” on My display and add a photo to open voting. The location is shown about 10–15 m
         from where you put the pin.
       </template>
       <template v-else>
-        New displays go live straight away as Unverified. The location is shown about 25–50 m from where you put the
+        New displays go live straight away as Unverified. The location is shown about 10–15 m from where you put the
         pin, and we remove all hidden data (like GPS) from your photo.
       </template>
     </p>

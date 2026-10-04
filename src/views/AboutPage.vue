@@ -94,7 +94,7 @@ onIonViewDidEnter(() => {
           </p>
           <h2>Location and photos</h2>
           <p>
-            We show each display about 25–50 m from where it was placed, and we strip hidden data such as GPS
+            We show each display about 10–15 m from where it was placed, and we strip hidden data such as GPS
             coordinates and camera details from every photo. That makes the exact house a little harder to pinpoint, but
             it doesn't hide it — the photo still shows the house. Only the suburb or town is shown, never the street, and
             displays never show who added them.
@@ -128,7 +128,7 @@ onIonViewDidEnter(() => {
             </li>
             <li>
               <strong>Approximate location of your display.</strong> When you add a display, the point you choose is
-              sent to our server, which moves it a random 25–50 m and stores only that approximate point and the town.
+              sent to our server, which moves it a random 10–15 m and stores only that approximate point and the town.
               The exact point isn't stored or logged.
             </li>
             <li>
@@ -167,7 +167,7 @@ onIonViewDidEnter(() => {
             <li>
               <strong>Address search (Photon).</strong> When you add a display, you can search for your address. What
               you type into address search is sent to Photon, run by komoot in Germany, only to find the address. We
-              don't store what you type; only the point you choose goes on to our server (which moves it 25–50 m, as
+              don't store what you type; only the point you choose goes on to our server (which moves it 10–15 m, as
               above).
             </li>
             <li>

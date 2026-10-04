@@ -173,7 +173,7 @@ test('first sign-in shows card 4, whose button opens the community rules', async
   await expect(welcome(page)).toBeVisible(FIRST_LOAD)
   await expectCard(page, 'add', 'Add your own display')
   await expect(page.getByTestId('welcome-text')).toHaveText(
-    'Snap a photo and drop a pin. We show it 25–50 m away, so your exact address stays a little private.',
+    'Snap a photo and drop a pin. We show it 10–15 m away, so your exact address stays a little private.',
   )
   await expect(welcome(page).getByText('NEW')).toBeVisible()
   await expect(dots(page)).toHaveCount(1)

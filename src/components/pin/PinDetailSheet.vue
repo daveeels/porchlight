@@ -192,7 +192,7 @@ async function share(): Promise<void> {
               Share
             </ion-button>
           </div>
-          <ion-note class="pl-muted text-xs">Location is approximate — shown about 25–50 m from the house.</ion-note>
+          <ion-note class="pl-muted text-xs">Location is approximate — shown about 10–15 m from the house.</ion-note>
 
           <ReportButton v-if="!isOwn" :pin="pin" @gone="onGone" />
         </div>
