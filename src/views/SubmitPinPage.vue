@@ -364,6 +364,10 @@ async function toMyDisplay(): Promise<void> {
             </ion-button>
             <ion-button fill="outline" class="tap" @click="toMyDisplay">My display</ion-button>
           </StateMessage>
+          <p v-if="appConfig.config.donateUrl" class="donate m-0 mt-2 text-center text-sm pl-muted" data-testid="donate-success">
+            Enjoying Porchlight? It's free and made by a local.
+            <a :href="appConfig.config.donateUrl" target="_blank" rel="noopener" class="donate-link pl-link">Buy De Wet a bad decision 🍻</a>
+          </p>
         </template>
 
         <template v-else>
@@ -425,5 +429,13 @@ async function toMyDisplay(): Promise<void> {
 .icon-tap {
   min-height: 44px;
   min-width: 44px;
+}
+.donate {
+  font-weight: 700;
+}
+.donate-link {
+  display: inline-block;
+  min-height: 44px;
+  line-height: 44px;
 }
 </style>

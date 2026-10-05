@@ -44,3 +44,12 @@ export function signOutUser(): Promise<void> {
 export function watchAuth(cb: (user: User | null) => void): Unsubscribe {
   return onAuthStateChanged(auth, cb)
 }
+
+/** The admin custom claim (set by `npm run admin`). The server checks it again on every admin call. */
+export async function hasAdminClaim(user: User): Promise<boolean> {
+  try {
+    return (await user.getIdTokenResult()).claims.admin === true
+  } catch {
+    return false
+  }
+}

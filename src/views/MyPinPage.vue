@@ -28,12 +28,14 @@ import MyPinCard from '@/components/mypin/MyPinCard.vue'
 import { canChangePin, canEditPin, canReAdd, isUnderReview } from '@/components/mypin/status'
 import { SEASON_THEMES } from '@/config/seasons'
 import { toPinWriteError } from '@/services/pinWrites'
+import { useAppConfigStore } from '@/stores/appConfig'
 import { useAuthStore } from '@/stores/auth'
 import { CREATES_PER_SEASON, useMyPinStore } from '@/stores/myPin'
 import { useSeasonStore } from '@/stores/season'
 
 const auth = useAuthStore()
 const myPin = useMyPinStore()
+const appConfig = useAppConfigStore()
 const season = useSeasonStore()
 const router = useRouter()
 const ionRouter = useIonRouter()
@@ -199,6 +201,10 @@ async function refresh(ev: RefresherCustomEvent): Promise<void> {
           </ion-button>
         </template>
 
+<p v-if="appConfig.config.donateUrl" class="donate m-0 mt-2 text-center text-sm pl-muted" data-testid="donate-mypin">
+          Porchlight is free and made by a local. Like it?
+            <a :href="appConfig.config.donateUrl" target="_blank" rel="noopener" class="donate-link pl-link">Buy De Wet a bad decision 🍻</a>
+          </p>
         <hr class="divider my-2 w-full" />
 
         <p v-if="email" class="m-0 text-sm pl-muted">Signed in as {{ email }}</p>
@@ -229,5 +235,13 @@ async function refresh(ev: RefresherCustomEvent): Promise<void> {
   font-weight: 800;
   display: inline-block;
   padding: 12px 0;
+}
+.donate {
+  font-weight: 700;
+}
+.donate-link {
+  display: inline-block;
+  min-height: 44px;
+  line-height: 44px;
 }
 </style>

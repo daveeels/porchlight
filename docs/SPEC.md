@@ -589,12 +589,12 @@ rateLimits:            no client access
 
 | Action | From → to | Also sets |
 |---|---|---|
-| `APPROVE` | HIDDEN → ACTIVE | `decision = 'APPROVED'`, `hiddenReason = null` |
+| `APPROVE` | HIDDEN → ACTIVE, or ACTIVE with reports ("Looks fine") | `decision = 'APPROVED'`, `hiddenReason = null`, `reportsCount = 0` (report docs kept, so the same people can't report it again; 8 new ones hide it) |
 | `REMOVE` | ACTIVE/HIDDEN → REMOVED (also an owner-REMOVED pin with `hiddenReason: 'REPORTS'`) | `removedBy = 'ADMIN'`, `decision = 'REJECTED'`; deletes the photos |
 | `RESTORE` | REMOVED (by admin) → ACTIVE | `removedBy = null`, `decision = 'APPROVED'` |
 | `BAN_USER` | owner's pins → REMOVED | Ban procedure (§5 `users`) |
 
-Each action sets `moderation.decision`, `reviewedBy`, `reviewedAt` on the pin; the free-text `note` goes only into `moderationActions` (admin read) — anyone can read an ACTIVE pin, so `moderation.note` on the pin stays `null`. The CLI records `reviewedBy: 'cli'` unless `--by <admin email>`. Until the admin UI (Phase 4), admins run `scripts/moderate.ts`, which calls this function. **Never hand-edit pin fields in the console.**
+Each action sets `moderation.decision`, `reviewedBy`, `reviewedAt` on the pin; the free-text `note` goes only into `moderationActions` (admin read) — anyone can read an ACTIVE pin, so `moderation.note` on the pin stays `null`. The CLI records `reviewedBy: 'cli'` unless `--by <admin email>`. Admins moderate on **`/admin` (Moderation)**, in the account menu for accounts with the admin claim: hidden displays, reported ones still showing (with the report reasons), ones the owner deleted while reported, and admin-removed ones (Restore). It reads pins/reports directly (admin read in the rules) and acts only through this function. `scripts/moderate.ts` does the same from the command line. **Never hand-edit pin fields in the console.**
 
 ### Rule → where it's enforced
 

@@ -76,6 +76,7 @@ export function useAccountMenu() {
       { text: 'Send feedback', handler: sendFeedback },
       { text: 'About & privacy', handler: inApp(() => void router.push('/about')) },
     ]
+    if (auth.isAdmin) buttons.push({ text: 'Moderation', handler: inApp(() => void router.push('/admin')) })
     if (donateUrl()) buttons.push({ text: 'Buy a bad decision 🍻', handler: donate })
     if (auth.isSignedIn) buttons.push({ text: 'Sign out', role: 'destructive', handler: inApp(() => void signOut()) })
     buttons.push({ text: 'Cancel', role: 'cancel' })

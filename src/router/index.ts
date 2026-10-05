@@ -37,6 +37,7 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   { path: '/me', name: 'me', component: () => import('@/views/MyPinPage.vue'), meta: { requiresAuth: true } },
+  { path: '/admin', name: 'admin', component: () => import('@/views/AdminPage.vue'), meta: { requiresAuth: true } },
   { path: '/about', name: 'about', component: () => import('@/views/AboutPage.vue') },
   { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/views/NotFoundPage.vue') },
 ]

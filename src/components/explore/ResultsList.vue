@@ -104,7 +104,7 @@ function distance(id: string): number | null {
           {{ pins.loading ? 'Loading…' : 'Load more' }}
         </ion-button>
       </div>
-      <p v-if="appConfig.config.donateUrl && !pins.canLoadMore" class="donate pl-muted px-4 pb-6 pt-2 text-center text-sm">
+      <p v-if="appConfig.config.donateUrl" class="donate pl-muted px-4 pb-6 pt-2 text-center text-sm">
         Porchlight is free and made by a local. Like it?
         <a :href="appConfig.config.donateUrl" target="_blank" rel="noopener" class="donate-link pl-link" data-testid="donate-footer"
           >Buy De Wet a bad decision 🍻</a

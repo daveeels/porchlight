@@ -2,7 +2,9 @@
 // the plain `applyModeration`, also used by scripts/moderate.ts so the audit
 // log is the same whichever way an admin moderates. Never hand-edit pins.
 //
-// | APPROVE  | HIDDEN → ACTIVE                         | decision APPROVED, hiddenReason null
+// | APPROVE  | HIDDEN → ACTIVE, or ACTIVE (reported)   | decision APPROVED, hiddenReason null,
+// |          | "Looks fine": dismisses the reports     | reportsCount 0 (report docs kept, so the
+// |          |                                         | same people can't report it again)
 // | REMOVE   | ACTIVE/HIDDEN → REMOVED (also an owner- | removedBy ADMIN, decision REJECTED;
 // |          | REMOVED pin hidden for REPORTS)         | photos deleted after the commit
 // | RESTORE  | REMOVED (by admin) → ACTIVE             | removedBy null, hiddenReason null, decision APPROVED
@@ -106,11 +108,12 @@ export async function applyModeration(input: ModeratePinInput, adminUid: string)
 
     switch (input.action) {
       case 'APPROVE':
-        if (pin.status !== 'HIDDEN') cantApply('APPROVE', pin.status)
+        if (pin.status !== 'HIDDEN' && pin.status !== 'ACTIVE') cantApply('APPROVE', pin.status)
         next = 'ACTIVE'
         tx.update(pinRef, {
           status: next,
           hiddenReason: null,
+          reportsCount: 0,
           ...moderationFields('APPROVED', adminUid, ts),
         })
         break

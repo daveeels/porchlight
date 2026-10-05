@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { auth, db } from '../../../functions/src/lib/admin'
 import { applyModeration, moderatePin } from '../../../functions/src/moderation/moderatePin'
 import { castVote } from '../../../functions/src/votes/castVote'
+import { reportPin } from '../../../functions/src/votes/reportPin'
 import { expectReason, filesUnder, resetEmulators, seedConfig, seedEvent } from './helpers'
 import { account, auditFor, pinData, randomUid, seedPhotos, seedPin } from './phase3Helpers'
 
@@ -51,8 +52,19 @@ describe('moderatePin', () => {
     expect(audit).toHaveLength(1)
     expect(audit[0]).toMatchObject({ pinId, adminUid: admin.uid, action: 'APPROVE', note: 'Checked, it is real' })
 
-    // Only from HIDDEN.
-    await expectReason(moderatePin(admin, { pinId, action: 'APPROVE' }), 'NOT_EDITABLE')
+    // Not on a removed display.
+    const removed = await seedPin(randomUid(), EVENT, { status: 'REMOVED', removedBy: 'OWNER' })
+    await expectReason(moderatePin(admin, { pinId: removed, action: 'APPROVE' }), 'NOT_EDITABLE')
+  })
+
+  it('APPROVE on a reported ACTIVE display dismisses the reports; the same people cannot report again', async () => {
+    const pinId = await seedPin()
+    const reporter = await account('google')
+    await reportPin(reporter, { pinId, reason: 'INAPPROPRIATE' })
+    expect((await pinData(pinId)).reportsCount).toBe(1)
+    await expect(moderatePin(admin, { pinId, action: 'APPROVE' })).resolves.toEqual({ pinId, status: 'ACTIVE' })
+    expect(await pinData(pinId)).toMatchObject({ status: 'ACTIVE', reportsCount: 0, moderation: { decision: 'APPROVED' } })
+    await expectReason(reportPin(reporter, { pinId, reason: 'SPAM' }), 'ALREADY_REPORTED')
   })
 
   it('REMOVE: ACTIVE → REMOVED by ADMIN and deletes the photos', async () => {

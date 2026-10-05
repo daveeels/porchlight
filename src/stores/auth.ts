@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 import { safeRedirect } from '@/lib/redirect'
 import {
+  hasAdminClaim,
   isEmailSignInLink,
   sendEmailSignInLink,
   signInWithEmailSignInLink,
@@ -51,6 +52,8 @@ export const useAuthStore = defineStore('auth', () => {
   const ready = ref(false)
   const isSignedIn = computed(() => !!user.value)
   const uid = computed(() => user.value?.uid ?? null)
+  /** Has the admin claim (shows the Moderation page; the server enforces it). */
+  const isAdmin = ref(false)
   let started: Promise<void> | null = null
 
   /** Starts watching auth (idempotent); resolves once the initial state is known. */
@@ -59,6 +62,10 @@ export const useAuthStore = defineStore('auth', () => {
     started = new Promise<void>((resolve) => {
       watchAuth((u) => {
         user.value = u
+        isAdmin.value = false
+        if (u) void hasAdminClaim(u).then((a) => {
+          if (user.value === u) isAdmin.value = a
+        })
         ready.value = true
         resolve()
       })
@@ -105,6 +112,7 @@ export const useAuthStore = defineStore('auth', () => {
     ready,
     isSignedIn,
     uid,
+    isAdmin,
     init,
     signIn,
     sendEmailLink,

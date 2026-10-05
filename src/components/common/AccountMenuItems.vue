@@ -7,6 +7,7 @@ import {
   beerOutline,
   chatbubbleEllipsesOutline,
   helpCircleOutline,
+  flagOutline,
   homeOutline,
   informationCircleOutline,
   logOutOutline,
@@ -61,6 +62,10 @@ function signOut(): void {
     <ion-item button :detail="false" router-link="/about" class="item" @click="emit('done')">
       <ion-icon slot="start" :icon="informationCircleOutline" aria-hidden="true" />
       <ion-label>About &amp; privacy</ion-label>
+    </ion-item>
+    <ion-item v-if="auth.isAdmin" button :detail="false" router-link="/admin" class="item" data-testid="admin-menu" @click="emit('done')">
+      <ion-icon slot="start" :icon="flagOutline" aria-hidden="true" />
+      <ion-label>Moderation</ion-label>
     </ion-item>
     <ion-item
       v-if="menu.donateUrl()"
